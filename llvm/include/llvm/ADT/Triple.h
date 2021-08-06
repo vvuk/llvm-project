@@ -150,6 +150,7 @@ public:
     Freescale,
     IBM,
     ImaginationTechnologies,
+    SGI,
     MipsTechnologies,
     NVIDIA,
     CSR,
@@ -172,6 +173,7 @@ public:
     IOS,
     KFreeBSD,
     Linux,
+    IRIX,
     Lv2,        // PS3
     MacOSX,
     NetBSD,
@@ -592,6 +594,11 @@ public:
   /// Tests whether the OS is Linux.
   bool isOSLinux() const {
     return getOS() == Triple::Linux;
+  }
+
+  /// Tests whether the OS is Linux.
+  bool isOSIRIX() const {
+    return getOS() == Triple::IRIX;
   }
 
   /// Tests whether the OS is kFreeBSD.

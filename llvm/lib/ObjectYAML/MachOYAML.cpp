@@ -17,6 +17,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Program.h"
 #include <cinttypes>
 #include <cstdint>
 #include <cstring>

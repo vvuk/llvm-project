@@ -98,7 +98,11 @@ void Process::Exit(int RetCode, bool NoCleanup) {
     CRC->HandleExit(RetCode);
 
   if (NoCleanup)
+#ifndef __sgi
     _Exit(RetCode);
+#else
+    exit(RetCode);
+#endif
   else
     ::exit(RetCode);
 }
