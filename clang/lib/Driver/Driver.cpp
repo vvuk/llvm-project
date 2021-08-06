@@ -37,6 +37,7 @@
 #include "ToolChains/Myriad.h"
 #include "ToolChains/NaCl.h"
 #include "ToolChains/NetBSD.h"
+#include "ToolChains/IRIX.h"
 #include "ToolChains/OpenBSD.h"
 #include "ToolChains/PPCLinux.h"
 #include "ToolChains/PS4CPU.h"
@@ -5280,6 +5281,9 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       break;
     case llvm::Triple::NetBSD:
       TC = std::make_unique<toolchains::NetBSD>(*this, Target, Args);
+      break;
+    case llvm::Triple::IRIX:
+      TC = std::make_unique<toolchains::IRIX>(*this, Target, Args);
       break;
     case llvm::Triple::FreeBSD:
       TC = std::make_unique<toolchains::FreeBSD>(*this, Target, Args);

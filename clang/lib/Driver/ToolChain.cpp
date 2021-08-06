@@ -404,6 +404,8 @@ StringRef ToolChain::getOSLibName() const {
     return "sunos";
   case llvm::Triple::AIX:
     return "aix";
+  case llvm::Triple::IRIX:
+    return "irix6.5";
   default:
     return getOS();
   }

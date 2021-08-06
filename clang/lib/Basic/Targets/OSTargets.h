@@ -424,6 +424,27 @@ public:
   }
 };
 
+// IRIX Target
+template <typename Target>
+class LLVM_LIBRARY_VISIBILITY IRIXTargetInfo : public OSTargetInfo<Target> {
+protected:
+  void getOSDefines(const LangOptions &Opts, const llvm::Triple &Triple,
+                    MacroBuilder &Builder) const override {
+    // IRIX defines; list currently based on NetBSD
+    Builder.defineMacro("__sgi");
+    Builder.defineMacro("__ELF__");
+    if (Opts.POSIXThreads)
+      Builder.defineMacro("_REENTRANT");
+  }
+
+public:
+  IRIXTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
+      : OSTargetInfo<Target>(Triple, Opts) {
+    this->MCountName = "__mcount";
+  }
+};
+
+
 // NetBSD Target
 template <typename Target>
 class LLVM_LIBRARY_VISIBILITY NetBSDTargetInfo : public OSTargetInfo<Target> {
