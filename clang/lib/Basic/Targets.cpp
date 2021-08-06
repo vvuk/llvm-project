@@ -251,6 +251,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new FreeBSDTargetInfo<MipsTargetInfo>(Triple, Opts);
     case llvm::Triple::NetBSD:
       return new NetBSDTargetInfo<MipsTargetInfo>(Triple, Opts);
+    case llvm::Triple::IRIX:
+      return new IRIXTargetInfo<MipsTargetInfo>(Triple, Opts);
     default:
       return new MipsTargetInfo(Triple, Opts);
     }
@@ -283,6 +285,8 @@ TargetInfo *AllocateTarget(const llvm::Triple &Triple,
       return new NetBSDTargetInfo<MipsTargetInfo>(Triple, Opts);
     case llvm::Triple::OpenBSD:
       return new OpenBSDTargetInfo<MipsTargetInfo>(Triple, Opts);
+    case llvm::Triple::IRIX:
+      return new IRIXTargetInfo<MipsTargetInfo>(Triple, Opts);
     default:
       return new MipsTargetInfo(Triple, Opts);
     }
