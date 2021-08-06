@@ -20,6 +20,7 @@
 #include "llvm/Support/LEB128.h"
 #include "llvm/Support/YAMLTraits.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/Program.h"
 
 #include "llvm/Support/Format.h"
 

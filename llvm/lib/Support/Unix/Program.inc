@@ -48,6 +48,11 @@
 #include <TargetConditionals.h>
 #endif
 
+#if defined(__sgi)
+#define _BSD_COMPAT
+#include <sys/wait.h>
+#endif
+
 #if defined(__APPLE__) && !(defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
 #define USE_NSGETENVIRON 1
 #else
@@ -335,10 +340,14 @@ static bool Execute(ProcessInfo &PI, StringRef Program,
 namespace llvm {
 namespace sys {
 
-#ifndef _AIX
-using ::wait4;
-#else
+#ifdef __sgi
+static pid_t wait4 (pid_t pid, int *status, int options, struct rusage *usage) {
+  return waitpid(pid, status, options);
+}
+#elif defined(_AIX)
 static pid_t (wait4)(pid_t pid, int *status, int options, struct rusage *usage);
+#else
+using ::wait4;
 #endif
 
 } // namespace sys
@@ -480,7 +489,11 @@ ProcessInfo llvm::sys::Wait(const ProcessInfo &PI, unsigned SecondsToWait,
     }
   } else if (WIFSIGNALED(status)) {
     if (ErrMsg) {
+#ifdef __sgi
+      // There is no strsignal on IRIX
+#else
       *ErrMsg = strsignal(WTERMSIG(status));
+#endif
 #ifdef WCOREDUMP
       if (WCOREDUMP(status))
         *ErrMsg += " (core dumped)";

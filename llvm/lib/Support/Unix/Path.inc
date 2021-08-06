@@ -47,6 +47,8 @@
 #include <machine/elf.h>
 extern char **environ;
 #endif
+#elif defined(__sgi)
+#include <sys/procfs.h>
 #elif defined(__DragonFly__)
 #include <sys/mount.h>
 #elif defined(__MVS__)
@@ -109,7 +111,7 @@ typedef uint_t uint;
 #endif
 
 #if defined(__NetBSD__) || defined(__DragonFly__) || defined(__GNU__) || \
-    defined(__MVS__)
+    defined(__MVS__) || defined(__sgi)
 #define STATVFS_F_FLAG(vfs) (vfs).f_flag
 #else
 #define STATVFS_F_FLAG(vfs) (vfs).f_flags
@@ -126,7 +128,7 @@ const file_t kInvalidFile = -1;
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) ||     \
     defined(__minix) || defined(__FreeBSD_kernel__) || defined(__linux__) ||   \
     defined(__CYGWIN__) || defined(__DragonFly__) || defined(_AIX) || defined(__GNU__) || \
-    (defined(__sun__) && defined(__svr4__))
+    (defined(__sun__) && defined(__svr4__)) || defined(__sgi)
 static int
 test_dir(char ret[PATH_MAX], const char *dir, const char *bin)
 {
@@ -192,7 +194,11 @@ getprogpath(char ret[PATH_MAX], const char *bin)
 /// GetMainExecutable - Return the path to the main executable, given the
 /// value of argv[0] from program startup.
 std::string getMainExecutable(const char *argv0, void *MainAddr) {
-#if defined(__APPLE__)
+#if defined(__sgi)
+  char exe_path[PATH_MAX];
+  if (getprogpath(exe_path, argv0) != NULL)
+    return exe_path;
+#elif defined(__APPLE__)
   // On OS X the executable path is saved to the stack by dyld. Reading it
   // from there is much faster than calling dladdr, especially for large
   // binaries with symbols.
@@ -549,6 +555,9 @@ static bool is_local_impl(struct STATVFS &Vfs) {
 #elif defined(__MVS__)
   // The file system can have an arbitrary structure on z/OS; must go with the
   // conservative answer.
+  return false;
+#elif defined(__sgi)
+  //the lazy answer
   return false;
 #else
   return !!(STATVFS_F_FLAG(Vfs) & MNT_LOCAL);

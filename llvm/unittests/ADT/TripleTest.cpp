@@ -534,6 +534,19 @@ TEST(TripleTest, ParsedIDs) {
   EXPECT_EQ(Triple::GNU, T.getEnvironment());
   EXPECT_EQ(Triple::NoSubArch, T.getSubArch());
 
+  T = Triple("mips64-sgi-irix6.5");
+  EXPECT_EQ(Triple::mips64, T.getArch());
+  EXPECT_EQ(Triple::SGI, T.getVendor());
+  EXPECT_EQ(Triple::IRIX, T.getOS());
+  EXPECT_EQ(Triple::GNUABI64, T.getEnvironment());
+  EXPECT_EQ(Triple::NoSubArch, T.getSubArch());
+  T = Triple("mips-sgi-irix6.5");
+  EXPECT_EQ(Triple::mips, T.getArch());
+  EXPECT_EQ(Triple::SGI, T.getVendor());
+  EXPECT_EQ(Triple::IRIX, T.getOS());
+  EXPECT_EQ(Triple::GNU, T.getEnvironment());
+  EXPECT_EQ(Triple::NoSubArch, T.getSubArch());
+
   T = Triple("mipsisa32r6el-unknown-linux-gnu");
   EXPECT_EQ(Triple::mipsel, T.getArch());
   EXPECT_EQ(Triple::UnknownVendor, T.getVendor());

@@ -15,6 +15,11 @@
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
 
+#ifdef __sgi
+extern "C" int setenv(const char *name, const char *value, int rewrite);
+extern "C"  void unsetenv(const char *name);
+#endif
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
