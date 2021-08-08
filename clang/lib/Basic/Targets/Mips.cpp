@@ -80,6 +80,18 @@ void MipsTargetInfo::getTargetDefines(const LangOptions &Opts,
 
   Builder.defineMacro("__mips__");
   Builder.defineMacro("_mips");
+  if (getTriple().isOSIRIX()) {
+    Builder.defineMacro("__host_mips__");
+    Builder.defineMacro("host_mips");
+    Builder.defineMacro("__host_mips");
+
+    // We're only targetting IRIX 6.5, which itself only supports MIPS 3 and 4
+    // Thus we can be confident that they are R4000 compatible
+    Builder.defineMacro("__R4000__");
+    Builder.defineMacro("__R4000");
+    Builder.defineMacro("_R4000");
+    Builder.defineMacro("R4000");
+  }
   if (Opts.GNUMode)
     Builder.defineMacro("mips");
 
@@ -87,10 +99,27 @@ void MipsTargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__mips", "32");
     Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS32");
   } else {
-    Builder.defineMacro("__mips", "64");
+    // MIPSPro on IRIX sets various macros depending on which mips revision
+    // it's building for
+    if (getTriple().isOSIRIX()) {
+      Builder.defineMacro("_MIPS_TUNE", CPU);
+      if (CPU == "mips4") {
+        Builder.defineMacro("__mips", "4");
+        Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS4");
+        Builder.defineMacro("_MIPS_TUNE_MIPS4");
+        Builder.defineMacro("_MIPS_ARCH_MIPS4");
+      } else {
+        Builder.defineMacro("__mips", "3");
+        Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS3");
+        Builder.defineMacro("_MIPS_TUNE_MIPS3");
+        Builder.defineMacro("_MIPS_ARCH_MIPS3");
+      }
+    } else {
+      Builder.defineMacro("__mips", "64");
+      Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS64");
+    }
     Builder.defineMacro("__mips64");
     Builder.defineMacro("__mips64__");
-    Builder.defineMacro("_MIPS_ISA", "_MIPS_ISA_MIPS64");
   }
 
   const std::string ISARev = std::to_string(getISARev());
