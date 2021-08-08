@@ -432,16 +432,41 @@ protected:
                     MacroBuilder &Builder) const override {
     // IRIX defines; list currently based on NetBSD
     Builder.defineMacro("__sgi");
+    Builder.defineMacro("sgi");
+    Builder.defineMacro("__sgi__");
+    Builder.defineMacro("_SGI_SOURCE");
+    Builder.defineMacro("SYSTYPE_SVR4");
+    Builder.defineMacro("__SYSTYPE_SVR4");
+    Builder.defineMacro("_SVR4_SOURCE");
+    Builder.defineMacro("__SYSTYPE_SVR4__");
+    Builder.defineMacro("_LONGLONG");
+    Builder.defineMacro("__EXTENSIONS__");
+    Builder.defineMacro("LANGUAGE_C");
+    Builder.defineMacro("_LANGUAGE_C");
+    Builder.defineMacro("__LANGUAGE_C");
+    Builder.defineMacro("__LANGUAGE_C__");
+    Builder.defineMacro("_COMPILER_VERSION", "601");
+
+    if (Opts.C99) {
+      Builder.defineMacro("__c99");
+      Builder.defineMacro("_MODERN_C");
+    } else {
+      Builder.defineMacro("__STRICT_ANSI__");
+    }
+
     Builder.defineMacro("__ELF__");
+
+    // DefineStd isn't compliant with MIPSPro
+    Builder.defineMacro("unix");
+    Builder.defineMacro("__unix");
+    Builder.defineMacro("__unix__");
     if (Opts.POSIXThreads)
       Builder.defineMacro("_REENTRANT");
   }
 
 public:
   IRIXTargetInfo(const llvm::Triple &Triple, const TargetOptions &Opts)
-      : OSTargetInfo<Target>(Triple, Opts) {
-    this->MCountName = "__mcount";
-  }
+      : OSTargetInfo<Target>(Triple, Opts) {}
 };
 
 
