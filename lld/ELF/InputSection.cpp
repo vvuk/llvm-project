@@ -919,7 +919,12 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
                         ": has non-ABS relocation " + toString(type) +
                         " against symbol '" + toString(sym) + "'";
       if (expr != R_PC && expr != R_ARM_PCA) {
-        error(msg);
+        // More IRIX fixes
+        if (type != R_MIPS_CALL_HI16) {
+          error(msg);
+        } else {
+          warn(msg);
+        }
         return;
       }
 

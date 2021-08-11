@@ -280,7 +280,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::mips:
     if (T.isOSIRIX() && (tools::mips::hasMipsAbiArg(Args, "n32") ||
         T.getEnvironment() == llvm::Triple::GNUABIN32))
-      return "elf32bmipn32";
+      //return "elf32bmipn32";
     return "elf32btsmip";
   case llvm::Triple::mipsel:
     return "elf32ltsmip";
@@ -288,7 +288,7 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
     if (tools::mips::hasMipsAbiArg(Args, "n32") ||
         T.getEnvironment() == llvm::Triple::GNUABIN32) {
           if (T.isOSIRIX())
-            return "elf32bmipn32";
+            //return "elf32bmipn32";
           return "elf32btsmipn32";
         }
     return "elf64btsmip";

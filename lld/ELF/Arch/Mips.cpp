@@ -188,6 +188,7 @@ RelExpr MIPS<ELFT>::getRelExpr(RelType type, const Symbol &s,
   case R_MIPS_TLS_LDM:
   case R_MICROMIPS_TLS_LDM:
     return R_MIPS_TLSLD;
+  case R_MIPS_SCN_DISP:
   case R_MIPS_NONE:
     return R_NONE;
   default:

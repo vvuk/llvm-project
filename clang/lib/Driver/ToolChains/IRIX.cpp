@@ -8,6 +8,7 @@
 
 #include "IRIX.h"
 #include "CommonArgs.h"
+#include "Arch/Mips.h"
 #include "clang/Config/config.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Options.h"
@@ -22,7 +23,11 @@ using namespace llvm::opt;
 using tools::addPathIfExists;
 
 static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
-  return Triple.isArch32Bit() ? "lib32" : "lib64";
+  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
+    return "lib32";
+  } else {
+    return "lib64";
+  }
 }
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
@@ -42,14 +47,23 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // to the link paths.
   path_list &Paths = getFilePaths();
 
+  StringRef CPUName;
+  StringRef ABIName;
+  tools::mips::getMipsCPUAndABI(Args, Triple, CPUName, ABIName);
+
   const std::string OSLibDir = std::string(getOSLibDir(Triple, Args));
   const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
+  Paths.push_back(SysRoot + "/usr/" + OSLibDir + "/" + CPUName.data());
+  Paths.push_back(SysRoot + "/usr/" + OSLibDir);
+  Paths.push_back(SysRoot + "/" + OSLibDir);
 
 #ifdef ENABLE_LINKER_BUILD_ID
   ExtraOpts.push_back("--build-id");
 #endif
-
-  Generic_GCC::AddMultilibPaths(D, SysRoot, OSLibDir, MultiarchTriple, Paths);
+  // Without this, lld will fail to link, since it's looking for
+  // code defined inside rld
+  ExtraOpts.push_back("--allow-shlib-undefined");
+  ExtraOpts.push_back("-lm");
 
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
@@ -57,28 +71,11 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // FIXME: It's not clear whether we should use the driver's installed
   // directory ('Dir' below) or the ResourceDir.
   if (StringRef(D.Dir).startswith(SysRoot)) {
-    addPathIfExists(D, D.Dir + "/../lib/" + MultiarchTriple, Paths);
     addPathIfExists(D, D.Dir + "/../" + OSLibDir, Paths);
   }
 
-  addPathIfExists(D, SysRoot + "/lib/" + MultiarchTriple, Paths);
-  addPathIfExists(D, SysRoot + "/lib/../" + OSLibDir, Paths);
-
-  addPathIfExists(D, SysRoot + "/usr/lib/" + MultiarchTriple, Paths);
-  addPathIfExists(D, SysRoot + "/usr/lib/../" + OSLibDir, Paths);
-
   Generic_GCC::AddMultiarchPaths(D, SysRoot, OSLibDir, Paths);
-
-  // Similar to the logic for GCC above, if we are currently running Clang
-  // inside of the requested system root, add its parent library path to those
-  // searched.
-  // FIXME: It's not clear whether we should use the driver's installed
-  // directory ('Dir' below) or the ResourceDir.
-  if (StringRef(D.Dir).startswith(SysRoot))
-    addPathIfExists(D, D.Dir + "/../lib", Paths);
-
-  addPathIfExists(D, SysRoot + "/lib", Paths);
-  addPathIfExists(D, SysRoot + "/usr/lib", Paths);
+  Generic_GCC::AddMultilibPaths(D, SysRoot, OSLibDir, MultiarchTriple, Paths);
 }
 
 bool IRIX::HasNativeLLVMSupport() const { return true; }
@@ -90,7 +87,7 @@ Tool *IRIX::buildAssembler() const {
 }
 
 std::string IRIX::getDynamicLinker(const ArgList &Args) const {
-  if (isTarget32Bit()) {
+  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
     return "/usr/lib32/libc.so.1";
   } else {
     return "/usr/lib64/libc.so.1";

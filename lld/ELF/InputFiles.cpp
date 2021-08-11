@@ -1105,10 +1105,18 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     // Handle local symbols. Local symbols are not added to the symbol
     // table because they are not visible from other object files. We
     // allocate symbol instances and add their pointers to symbols.
-    if (i >= firstGlobal)
+
+    // THIS IS TEMPORARILY DISABLED, GCC FOR IRIX IS BROKEN AND MIXES LOCAL 
+    // SYMBOLS WITH GLOBAL AND WEAK SYMBOLS, LOCAL SYMBOLS SHOULD ALWAYS
+    // COME BEFORE GLOBAL AND WEAK SYMBOLS
+    // https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-79797.html
+    // https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-94076.html
+    /*if (i >= firstGlobal)
       errorOrWarn(toString(this) + ": STB_LOCAL symbol (" + Twine(i) +
                   ") found at index >= .symtab's sh_info (" +
-                  Twine(firstGlobal) + ")");
+                  Twine(firstGlobal) + ")" + 
+                  CHECK(eSyms[i].getName(this->stringTable), this) + "-" + 
+                  CHECK(eSyms[firstGlobal].getName(this->stringTable), this));*/
 
     InputSectionBase *sec = this->sections[secIdx];
     uint8_t type = eSym.getType();
@@ -1544,7 +1552,7 @@ template <class ELFT> void SharedFile::parse() {
     StringRef name = CHECK(sym.getName(this->stringTable), this);
     if (sym.getBinding() == STB_LOCAL) {
       warn("found local symbol '" + name +
-           "' in global part of symbol table in file " + toString(this));
+           "' in global part of symbol table in file " + toString(this) + "--" + Twine(i));
       continue;
     }
 
