@@ -65,6 +65,11 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   ExtraOpts.push_back("--allow-shlib-undefined");
   ExtraOpts.push_back("-lm");
 
+  // Hack for shared libraries, otherwise they take the wrong base address
+  // and rld isn't happy
+  // This doesn't work on Binutils LD
+  ExtraOpts.push_back("-image-base=0x10000");
+
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
   // those searched.

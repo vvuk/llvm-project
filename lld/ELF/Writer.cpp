@@ -1078,7 +1078,7 @@ void PhdrEntry::add(OutputSection *sec) {
   if (!firstSec)
     firstSec = sec;
   p_align = std::max(p_align, sec->alignment);
-  if (p_type == PT_LOAD)
+  if (p_type == PT_LOAD) 
     sec->ptLoad = this;
 }
 
@@ -2355,7 +2355,9 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   bool isMain = partNo == 1;
 
   // Add the first PT_LOAD segment for regular output sections.
-  uint64_t flags = computeFlags(PF_R);
+  // Make sure it's executable because it's going to have both the regular
+  // elfHeader/programHeaders, and also the executable sections
+  uint64_t flags = computeFlags(PF_R | PF_X);
   PhdrEntry *load = nullptr;
 
   // nmagic or omagic output does not have PT_PHDR, PT_INTERP, or the readonly
@@ -2433,7 +2435,13 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
         load && !sec->lmaExpr && sec->lmaRegion == load->firstSec->lmaRegion;
     if (!(load && newFlags == flags && sec != relroEnd &&
           sec->memRegion == load->firstSec->memRegion &&
-          (sameLMARegion || load->lastSec == Out::programHeaders))) {
+          (sameLMARegion || load->lastSec == Out::programHeaders)) && 
+          !(newFlags & PF_X)) { 
+          // The above conditional line might be problematic on non-irix
+          // platforms.
+          // The reason why we do it is because otherwise, executable segments
+          // get placed at the wrong address and rld will complain about
+          // their alignment.
       load = addHdr(PT_LOAD, newFlags);
       flags = newFlags;
     }
@@ -2594,7 +2602,7 @@ template <class ELFT> void Writer<ELFT>::fixSectionAlignments() {
 static uint64_t computeFileOffset(OutputSection *os, uint64_t off) {
   // The first section in a PT_LOAD has to have congruent offset and address
   // modulo the maximum page size.
-  if (os->ptLoad && os->ptLoad->firstSec == os)
+  if (os->ptLoad && os->ptLoad->firstSec == os) 
     return alignTo(off, os->ptLoad->p_align, os->addr);
 
   // File offsets are not significant for .bss sections other than the first one
