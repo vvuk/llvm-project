@@ -486,10 +486,20 @@ template <class ELFT>
 template <typename T>
 Expected<ArrayRef<T>>
 ELFFile<ELFT>::getSectionContentsAsArray(const Elf_Shdr &Sec) const {
+  uint64_t Sec_sh_entsize = Sec.sh_entsize;
   if (Sec.sh_entsize != sizeof(T) && sizeof(T) != 1)
+  {
+#if false
     return createError("section " + getSecIndexForError(*this, Sec) +
                        " has invalid sh_entsize: expected " + Twine(sizeof(T)) +
                        ", but got " + Twine(Sec.sh_entsize));
+#else
+    Sec_sh_entsize = sizeof(T);
+    dbgs() << ("section " + getSecIndexForError(*this, Sec) +
+                       " has invalid sh_entsize: expected " + Twine(sizeof(T)) +
+                       ", but got " + Twine(Sec.sh_entsize) + "\n");
+#endif
+  }
 
   uintX_t Offset = Sec.sh_offset;
   uintX_t Size = Sec.sh_size;
@@ -498,7 +508,7 @@ ELFFile<ELFT>::getSectionContentsAsArray(const Elf_Shdr &Sec) const {
     return createError("section " + getSecIndexForError(*this, Sec) +
                        " has an invalid sh_size (" + Twine(Size) +
                        ") which is not a multiple of its sh_entsize (" +
-                       Twine(Sec.sh_entsize) + ")");
+                       Twine(Sec_sh_entsize) + ")");
   if (std::numeric_limits<uintX_t>::max() - Offset < Size)
     return createError("section " + getSecIndexForError(*this, Sec) +
                        " has a sh_offset (0x" + Twine::utohexstr(Offset) +
