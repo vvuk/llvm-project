@@ -23,11 +23,6 @@
 #include <chrono>
 #include <system_error>
 
-#ifdef __sgi
-#include <setenv.h>
-#include <strnlen.h>
-#endif
-
 namespace llvm {
 namespace sys {
 
