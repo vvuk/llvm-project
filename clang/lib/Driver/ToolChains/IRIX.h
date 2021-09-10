@@ -39,6 +39,27 @@ protected:
 };
 
 } // end namespace toolchains
+
+#if false
+namespace tools {
+namespace irix {
+
+class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
+public:
+  Linker(const ToolChain &TC) : Tool("irix::Linker", "linker", TC) {}
+
+  bool hasIntegratedCPP() const override { return false; }
+  bool isLinkJob() const override { return true; }
+
+  void ConstructJob(Compilation &C, const JobAction &JA,
+                    const InputInfo &Output, const InputInfoList &Inputs,
+                    const llvm::opt::ArgList &TCArgs,
+                    const char *LinkingOutput) const override;
+};
+} // end namespace irix
+} // end namespace tools
+#endif
+
 } // end namespace driver
 } // end namespace clang
 
