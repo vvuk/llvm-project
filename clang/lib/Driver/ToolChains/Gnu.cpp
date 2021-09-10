@@ -1883,8 +1883,15 @@ static llvm::StringRef getGCCToolchainDir(const ArgList &Args,
   // If we have a SysRoot, ignore GCC_INSTALL_PREFIX.
   // GCC_INSTALL_PREFIX specifies the gcc installation for the default
   // sysroot and is likely not valid with a different sysroot.
+  //
+  // XXvlad This is a really weird thing, because it means that a build
+  // that explicity specifies DEFAULT_SYSROOT (for a cross compiler) and
+  // GCC_INSTALL_PREFIX (because it happens to be somewhere not in that
+  // sysroot) breaks
+  #if false
   if (!SysRoot.empty())
     return "";
+  #endif
 
   return GCC_INSTALL_PREFIX;
 }
