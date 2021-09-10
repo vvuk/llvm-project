@@ -141,6 +141,9 @@ static std::tuple<ELFKind, uint16_t, uint8_t> parseEmulation(StringRef emul) {
   if (s.endswith("_fbsd")) {
     s = s.drop_back(5);
     osabi = ELFOSABI_FREEBSD;
+  } else if (s.endswith("_irix")) {
+    s = s.drop_back(5);
+    osabi = ELFOSABI_IRIX;
   }
 
   std::pair<ELFKind, uint16_t> ret =
