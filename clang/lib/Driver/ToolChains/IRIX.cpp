@@ -60,6 +60,9 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 #ifdef ENABLE_LINKER_BUILD_ID
   ExtraOpts.push_back("--build-id");
 #endif
+
+//#define BINUTILS_LD_BUILD
+#ifndef BINUTILS_LD_BUILD
   // Without this, lld will fail to link, since it's looking for
   // code defined inside rld
   ExtraOpts.push_back("--allow-shlib-undefined");
@@ -69,6 +72,7 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // and rld isn't happy
   // This doesn't work on Binutils LD
   ExtraOpts.push_back("-image-base=0x10000");
+#endif
 
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
@@ -104,11 +108,15 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   const Driver &D = getDriver();
   std::string SysRoot = computeSysRoot();
 
+  addSystemInclude(DriverArgs, CC1Args, GCCInstallation.getInstallPath() + "/include-fixed");
+
+  AddMultilibIncludeArgs(DriverArgs, CC1Args);
+
   if (DriverArgs.hasArg(clang::driver::options::OPT_nostdinc))
     return;
 
   if (!DriverArgs.hasArg(options::OPT_nostdlibinc)) {
-    addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
+    //addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
     addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include");
   }
 
@@ -137,10 +145,10 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   // Lacking those, try to detect the correct set of system includes for the
   // target triple.
 
-  AddMultilibIncludeArgs(DriverArgs, CC1Args);
-
-  addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
   addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include");
+
+  //addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
+  
 }
 
 void IRIX::addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {

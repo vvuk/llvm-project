@@ -345,7 +345,7 @@ BssSection::BssSection(StringRef name, uint64_t size, uint32_t alignment)
 }
 
 EhFrameSection::EhFrameSection()
-    : SyntheticSection(SHF_ALLOC, SHT_PROGBITS, 1, ".eh_frame") {}
+    : SyntheticSection(SHF_ALLOC | SHF_WRITE, SHT_PROGBITS, 1, ".eh_frame") {}
 
 // Search for an existing CIE record or create a new one.
 // CIE records from input object files are uniquified by their contents

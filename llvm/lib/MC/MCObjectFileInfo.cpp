@@ -397,8 +397,12 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   // it contains relocatable pointers.  In PIC mode, this is probably a big
   // runtime hit for C++ apps.  Either the contents of the LSDA need to be
   // adjusted or this should be a data section.
-  LSDASection = Ctx->getELFSection(".gcc_except_table", ELF::SHT_PROGBITS,
+  if (T.isOSIRIX())
+    LSDASection = Ctx->getELFSection(".gcc_except_table", ELF::SHT_PROGBITS,
                                    ELF::SHF_ALLOC | ELF::SHF_WRITE);
+  else
+    LSDASection = Ctx->getELFSection(".gcc_except_table", ELF::SHT_PROGBITS,
+                                   ELF::SHF_ALLOC);
 
   COFFDebugSymbolsSection = nullptr;
   COFFDebugTypesSection = nullptr;
