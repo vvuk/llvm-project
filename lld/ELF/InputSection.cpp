@@ -909,7 +909,7 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
                         ": has non-ABS relocation " + toString(type) +
                         " against symbol '" + toString(sym) + "'";
       if (expr != R_PC && expr != R_ARM_PCA &&
-        !(config->osabi == ELFOSABI_IRIX && type == SHT_IRIX_EVENTS)) {
+        !(config->osabi == ELFOSABI_IRIX && this->type == SHT_IRIX_EVENTS)) {
         error(msg);
         return;
       }
