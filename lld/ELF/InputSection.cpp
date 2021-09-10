@@ -918,13 +918,9 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
       std::string msg = getLocation<ELFT>(offset) +
                         ": has non-ABS relocation " + toString(type) +
                         " against symbol '" + toString(sym) + "'";
-      if (expr != R_PC && expr != R_ARM_PCA) {
-        // More IRIX fixes
-        if (type != R_MIPS_CALL_HI16) {
-          error(msg);
-        } else {
-          warn(msg);
-        }
+      if (expr != R_PC && expr != R_ARM_PCA &&
+        !(config->osabi == ELFOSABI_IRIX && type == SHT_IRIX_EVENTS)) {
+        error(msg);
         return;
       }
 
@@ -935,6 +931,9 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
       // relocations without any errors and relocate them as if they were at
       // address 0. For bug-compatibilty, we accept them with warnings. We
       // know Steel Bank Common Lisp as of 2018 have this bug.
+      //
+      // IRIX has PC-relative relocs for .MIPS.events.* sections in crt1.o;
+      // unclear how they should be relocated, so assume zero-based like this.
       warn(msg);
       target->relocateNoSym(
           bufLoc, type,
