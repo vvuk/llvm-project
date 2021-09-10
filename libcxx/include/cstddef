@@ -41,7 +41,11 @@ Types:
 #endif
 
 // Don't include our own <stddef.h>; we don't want to declare ::nullptr_t.
+#ifdef __sgi
+#include <__support/irix/stddef.h>
+#else
 #include_next <stddef.h>
+#endif
 #include <__nullptr>
 
 _LIBCPP_BEGIN_NAMESPACE_STD

@@ -454,7 +454,7 @@ protected:
     Builder.defineMacro("__LANGUAGE_C__");
     Builder.defineMacro("_COMPILER_VERSION", "601");
 
-    if (Opts.C99) {
+    if (Opts.C99 || Opts.CPlusPlus) {
       Builder.defineMacro("__c99");
       Builder.defineMacro("_MODERN_C");
     } else {

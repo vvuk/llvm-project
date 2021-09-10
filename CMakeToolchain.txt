@@ -1,0 +1,20 @@
+set(CMAKE_SYSTEM_NAME IRIX)
+
+set(IRIX 1)
+
+set(CMAKE_SYSTEM_PROCESSOR "mips")
+
+set(CMAKE_SYSROOT /Users/edward/Programming/irixstuff/Env/IRIX)
+set(CMAKE_STAGING_PREFIX /Users/edward/Programming/irixstuff/Env/ILocal)
+set(CMAKE_INSTALL_PREFIX /Users/edward/Programming/irixstuff/Env/ILocal)
+set(CMAKE_INSTALL_DATAROOTDIR /Users/edward/Programming/irixstuff/Env/ILocal/share)
+
+set(CMAKE_AR mips-sgi-irix6.5-ar)
+set(CMAKE_RANLIB mips-sgi-irix6.5-ranlib)
+set(CMAKE_C_COMPILER /Users/edward/Programming/irixstuff/Env/Local/bin/clang)
+set(CMAKE_CXX_COMPILER /Users/edward/Programming/irixstuff/Env/Local/bin/clang++)
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)

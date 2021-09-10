@@ -312,6 +312,11 @@
 #  endif
 #endif // __sun__
 
+#ifdef __sgi
+//# define _LIBCPP_HAS_NO_LIBRARY_ALIGNED_ALLOCATION
+# define _LIBCPP_NO_NATIVE_SEMAPHORES
+#endif
+
 #if defined(__OpenBSD__) || defined(__CloudABI__)
    // Certain architectures provide arc4random(). Prefer using
    // arc4random() over /dev/{u,}random to make it possible to obtain
@@ -1132,6 +1137,7 @@ extern "C" _LIBCPP_FUNC_VIS void __sanitizer_annotate_contiguous_container(
       defined(__CloudABI__) || \
       defined(__sun__) || \
       defined(__MVS__) || \
+      defined(__sgi) || \
       (defined(__MINGW32__) && __has_include(<pthread.h>))
 #    define _LIBCPP_HAS_THREAD_API_PTHREAD
 #  elif defined(__Fuchsia__)
@@ -1228,7 +1234,7 @@ extern "C" _LIBCPP_FUNC_VIS void __sanitizer_annotate_contiguous_container(
 
 #if defined(__BIONIC__) || defined(__CloudABI__) || defined(__NuttX__) ||      \
     defined(__Fuchsia__) || defined(__wasi__) || defined(_LIBCPP_HAS_MUSL_LIBC) || \
-    defined(__MVS__) || defined(__OpenBSD__)
+    defined(__MVS__) || defined(__OpenBSD__) || defined(__sgi)
 #define _LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE
 #endif
 

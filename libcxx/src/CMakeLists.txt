@@ -125,6 +125,10 @@ endif()
 add_link_flags_if(LIBCXX_CXX_ABI_LIBRARY_PATH
                   "${CMAKE_LIBRARY_PATH_FLAG}${LIBCXX_CXX_ABI_LIBRARY_PATH}")
 
+if(IRIX)
+  find_library(XG_LIB NAMES xg)
+  set(LIBCXX_LIBRARIES ${LIBCXX_LIBRARIES} "${XG_LIB}")
+endif()
 
 if (LIBCXX_GENERATE_COVERAGE AND NOT LIBCXX_COVERAGE_LIBRARY)
   find_compiler_rt_library(profile LIBCXX_COVERAGE_LIBRARY)

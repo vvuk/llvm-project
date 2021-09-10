@@ -157,6 +157,8 @@ set(files
   __support/ibm/nanosleep.h
   __support/ibm/support.h
   __support/ibm/xlocale.h
+  __support/irix/stddef.h
+  __support/irix/xlocale.h
   __support/musl/xlocale.h
   __support/newlib/xlocale.h
   __support/nuttx/xlocale.h

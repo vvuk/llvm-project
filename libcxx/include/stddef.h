@@ -42,7 +42,11 @@ Types:
 #pragma GCC system_header
 #endif
 
+#ifdef __sgi
+#include <__support/irix/stddef.h>
+#else
 #include_next <stddef.h>
+#endif
 
 #ifdef __cplusplus
 

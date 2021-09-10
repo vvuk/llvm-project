@@ -31,6 +31,8 @@
 #elif defined(__sun__)
 # include <xlocale.h>
 # include <__support/solaris/xlocale.h>
+#elif defined(__sgi)
+# include <__support/irix/xlocale.h>
 #elif defined(_NEWLIB_VERSION)
 # include <__support/newlib/xlocale.h>
 #elif defined(__OpenBSD__)

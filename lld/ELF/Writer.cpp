@@ -983,10 +983,12 @@ static unsigned getSectionRank(const OutputSection *sec) {
   bool isWrite = sec->flags & SHF_WRITE;
 
   if (isExec) {
-    if (isWrite)
+    if (isWrite) {
       rank |= RF_EXEC_WRITE;
-    else
+    } else {
       rank |= RF_EXEC;
+      rank = 0;
+    }
   } else if (isWrite) {
     rank |= RF_WRITE;
   } else if (sec->type == SHT_PROGBITS) {
@@ -1004,7 +1006,6 @@ static unsigned getSectionRank(const OutputSection *sec) {
   // waste more bytes due to 2 alignment places.
   if (!isRelroSection(sec))
     rank |= RF_NOT_RELRO;
-
   // If we got here we know that both A and B are in the same PT_LOAD.
 
   // The TLS initialization block needs to be a single contiguous block in a R/W
@@ -2059,7 +2060,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   // Now that we have the final list, create a list of all the
   // OutputSections for convenience.
   for (BaseCommand *base : script->sectionCommands)
-    if (auto *sec = dyn_cast<OutputSection>(base))
+    if (auto *sec = dyn_cast<OutputSection>(base)) 
       outputSections.push_back(sec);
 
   // Prefer command line supplied address over other constraints.
@@ -2310,6 +2311,17 @@ template <class ELFT>
 std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   std::vector<PhdrEntry *> ret;
   auto addHdr = [&](unsigned type, unsigned flags) -> PhdrEntry * {
+    //this was a gross hack I was using to ensure PF_X segments came first
+    /*if (type == PT_LOAD && firstLoadPhdrNo == -1)
+      firstLoadPhdrNo = ret.size();
+
+    if (flags & PT_LOAD && 
+            (firstLoadPhdrNo != -1 && firstLoadPhdrNo != ret.size())) {
+      auto index = ret.begin();
+      advance(index, firstLoadPhdrNo);
+      ret.insert(index, make<PhdrEntry>(type, flags));
+      return ret.at(firstLoadPhdrNo);
+    }*/
     ret.push_back(make<PhdrEntry>(type, flags));
     return ret.back();
   };
@@ -2398,15 +2410,9 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
         load && !sec->lmaExpr && sec->lmaRegion == load->firstSec->lmaRegion;
     if (!(load && newFlags == flags && sec != relroEnd &&
           sec->memRegion == load->firstSec->memRegion &&
-          (sameLMARegion || load->lastSec == Out::programHeaders)) && 
-          !(newFlags & PF_X)) { 
-          // The above conditional line might be problematic on non-irix
-          // platforms.
-          // The reason why we do it is because otherwise, executable segments
-          // get placed at the wrong address and rld will complain about
-          // their alignment.
-      load = addHdr(PT_LOAD, newFlags);
-      flags = newFlags;
+          (sameLMARegion || load->lastSec == Out::programHeaders))) {
+          load = addHdr(PT_LOAD, newFlags);
+          flags = newFlags;
     }
 
     load->add(sec);
