@@ -19,8 +19,15 @@
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCSectionWasm.h"
 #include "llvm/MC/MCSectionXCOFF.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+
+namespace llvm {
+cl::opt<bool>
+    MipsPC64Relocation("mmips-pc64-rel", cl::init(true),
+                       cl::desc("Use MIPS 64-bit PC-relative relocations"));
+}
 
 static bool useCompactUnwind(const Triple &T) {
   // Only on darwin.
@@ -306,14 +313,11 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   case Triple::mipsel:
   case Triple::mips64:
   case Triple::mips64el:
-    // We cannot use DW_EH_PE_sdata8 for the large PositionIndependent case
-    // since there is no R_MIPS_PC64 relocation (only a 32-bit version).
-    if (PositionIndependent && !Large)
-      FDECFIEncoding = dwarf::DW_EH_PE_pcrel | dwarf::DW_EH_PE_sdata4;
-    else
-      FDECFIEncoding = Ctx->getAsmInfo()->getCodePointerSize() == 4
+    FDECFIEncoding = Ctx->getAsmInfo()->getCodePointerSize() == 4
                            ? dwarf::DW_EH_PE_sdata4
                            : dwarf::DW_EH_PE_sdata8;
+    if (PositionIndependent && (MipsPC64Relocation || T.isMIPS32()))
+        FDECFIEncoding |= dwarf::DW_EH_PE_pcrel;
     break;
   case Triple::ppc64:
   case Triple::ppc64le:
@@ -343,7 +347,7 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   // Solaris requires different flags for .eh_frame to seemingly every other
   // platform.
   unsigned EHSectionFlags = ELF::SHF_ALLOC;
-  if (T.isOSSolaris() && T.getArch() != Triple::x86_64)
+  if ((T.isOSSolaris() && T.getArch() != Triple::x86_64) || T.isOSIRIX())
     EHSectionFlags |= ELF::SHF_WRITE;
 
   // ELF
@@ -392,7 +396,7 @@ void MCObjectFileInfo::initELFMCObjectFileInfo(const Triple &T, bool Large) {
   // runtime hit for C++ apps.  Either the contents of the LSDA need to be
   // adjusted or this should be a data section.
   LSDASection = Ctx->getELFSection(".gcc_except_table", ELF::SHT_PROGBITS,
-                                   ELF::SHF_ALLOC);
+                                   ELF::SHF_ALLOC | ELF::SHF_WRITE);
 
   COFFDebugSymbolsSection = nullptr;
   COFFDebugTypesSection = nullptr;

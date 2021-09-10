@@ -1911,6 +1911,15 @@ void Clang::AddMIPSTargetArgs(const ArgList &Args,
       CmdArgs.push_back("-mips-jalr-reloc=0");
     }
   }
+  if (Arg *A = Args.getLastArg(options::OPT_mmips_pc64_rel,
+                               options::OPT_mno_mips_pc64_rel)) {
+    CmdArgs.push_back("-mllvm");
+    if (A->getOption().matches(options::OPT_mmips_pc64_rel))
+      CmdArgs.push_back("-mmips-pc64-rel=true");
+    else
+      CmdArgs.push_back("-mmips-pc64-rel=false");
+    A->claim();
+  }
 }
 
 void Clang::AddPPCTargetArgs(const ArgList &Args,
