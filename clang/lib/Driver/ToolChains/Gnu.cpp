@@ -276,19 +276,23 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::sparcv9:
     return "elf64_sparc";
   case llvm::Triple::mips:
+    if (tools::mips::hasMipsAbiArg(Args, "n32") ||
+        T.getEnvironment() == llvm::Triple::GNUABIN32)
+      return "elf32btsmipn32";
+    // HACK IRIX -- we're assuming we're using lld, gnu ld doesn't understand _irix
+    if (T.isOSIRIX() && !tools::mips::hasMipsAbiArg(Args, "o32"))
+      return "elf32btsmipn32_irix";
     return "elf32btsmip";
-  case llvm::Triple::mipsel:
-    return "elf32ltsmip";
   case llvm::Triple::mips64:
     if (tools::mips::hasMipsAbiArg(Args, "n32") ||
-        T.getEnvironment() == llvm::Triple::GNUABIN32) {
-          if (T.isOSIRIX())
-            return "elf32btsmipn32_irix";
-          return "elf32btsmipn32";
-        }
-    if (T.isOSIRIX())
-      return "elf64btsmip_irix";
+        T.getEnvironment() == llvm::Triple::GNUABIN32)
+        return "elf32btsmipn32";
+    // HACK IRIX -- we're assuming we're using lld, gnu ld doesn't understand _irix
+    if (T.isOSIRIX() && !tools::mips::hasMipsAbiArg(Args, "n64"))
+        return "elf32btsmipn32_irix";
     return "elf64btsmip";
+  case llvm::Triple::mipsel:
+    return "elf32ltsmip";
   case llvm::Triple::mips64el:
     if (tools::mips::hasMipsAbiArg(Args, "n32") ||
         T.getEnvironment() == llvm::Triple::GNUABIN32)

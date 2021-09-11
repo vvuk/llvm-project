@@ -36,6 +36,8 @@ public:
 protected:
   Tool *buildAssembler() const override;
   Tool *buildLinker() const override;
+
+  StringRef mABI;
 };
 
 } // end namespace toolchains

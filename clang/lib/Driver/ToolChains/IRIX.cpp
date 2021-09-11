@@ -23,12 +23,14 @@ using namespace llvm::opt;
 
 using tools::addPathIfExists;
 
-static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
-  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
+static StringRef getOSLibDir(StringRef abi) {
+  if (abi == "n32")
     return "lib32";
-  } else {
+  if (abi == "n64")
     return "lib64";
-  }
+  if (abi == "o32")
+    return "lib";
+  llvm_unreachable("Invalid abi for getOSLibDir");
 }
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
@@ -52,7 +54,9 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   StringRef ABIName;
   tools::mips::getMipsCPUAndABI(Args, Triple, CPUName, ABIName);
 
-  const std::string OSLibDir = std::string(getOSLibDir(Triple, Args));
+  mABI = ABIName;
+
+  const std::string OSLibDir = std::string(getOSLibDir(ABIName));
   const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
   Paths.push_back(SysRoot + "/usr/" + OSLibDir + "/" + CPUName.data());
   Paths.push_back(SysRoot + "/usr/" + OSLibDir);
@@ -97,12 +101,14 @@ Tool *IRIX::buildAssembler() const {
   return new tools::gnutools::Assembler(*this);
 }
 
-std::string IRIX::getDynamicLinker(const ArgList &Args) const {
-  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
+std::string IRIX::getDynamicLinker(const llvm::opt::ArgList &Args) const {
+  if (mABI == "n32")
     return "/usr/lib32/libc.so.1";
-  } else {
+  if (mABI == "n64")
     return "/usr/lib64/libc.so.1";
-  }
+  if (mABI == "o32")
+    return "/usr/lib/libc.so.1";
+  llvm_unreachable("Bad ABI in getDynamicLinker");
 }
 
 void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
