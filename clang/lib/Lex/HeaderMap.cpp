@@ -23,6 +23,11 @@
 #include "llvm/Support/Debug.h"
 #include <cstring>
 #include <memory>
+
+#ifdef __sgi
+#include <strnlen.h>
+#endif
+
 using namespace clang;
 
 /// HashHMapKey - This is the 'well known' hash function required by the file

@@ -124,6 +124,8 @@ const std::string &CIndexer::getClangResourcesPath() {
   LibClangPath += path;
 #elif defined(_AIX)
   getClangResourcesPathImplAIX(LibClangPath);
+#elif defined(__sgi)
+  llvm_unreachable("Write code to do dladdr directly using _rld_new_interface");
 #else
   // This silly cast below avoids a C++ warning.
   Dl_info info;
