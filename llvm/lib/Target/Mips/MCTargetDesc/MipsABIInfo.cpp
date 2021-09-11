@@ -65,8 +65,11 @@ MipsABIInfo MipsABIInfo::computeTargetABI(const Triple &TT, StringRef CPU,
     return MipsABIInfo::N32();
   assert(Options.getABIName().empty() && "Unknown ABI option for MIPS");
 
-  if (TT.isMIPS64())
+  if (TT.isMIPS64()) {
+    if (TT.isOSIRIX())
+      return MipsABIInfo::N32();
     return MipsABIInfo::N64();
+  }
   return MipsABIInfo::O32();
 }
 

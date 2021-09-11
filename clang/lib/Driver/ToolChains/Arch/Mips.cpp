@@ -56,6 +56,11 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
     DefMips64CPU = "mips3";
   }
 
+  if (Triple.isOSIRIX()) {
+    DefMips32CPU = "mips3";
+    DefMips64CPU = "mips3";
+  }
+
   if (Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ,
                                options::OPT_mcpu_EQ))
     CPUName = A->getValue();
@@ -112,6 +117,9 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
                   .Case("p5600", "o32")
                   .Default("");
   }
+
+  if (ABIName.empty() && Triple.isOSIRIX())
+    ABIName = "n32";
 
   if (ABIName.empty()) {
     // Deduce ABI name from the target triple.
