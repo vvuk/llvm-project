@@ -38,25 +38,39 @@ if [ ! -f ${CROSS_CC} ] ; then
     exit 1
 fi
 
+if [ ! -f /opt/irix/root/usr/xg/include/setenv.h ] ; then
+    echo "libxg stuff not found, run make install in libxg"
+    exit 1
+fi 
+
 RELDIR=$(dirname $0)
 
 set -x
 
 cmake -G Ninja \
-    -DLLVM_ENABLE_PROJECTS="clang;lld;compiler-rt" \
+    -DLLVM_ENABLE_PROJECTS="clang;lld" \
     -DCMAKE_CROSSCOMPILING=True \
     -DCMAKE_INSTALL_PREFIX=/usr/sgug \
     -DGCC_INSTALL_PREFIX=/usr/sgug \
     -DLLVM_TABLEGEN=${NDIR}/llvm-tblgen \
     -DCLANG_TABLEGEN=${NDIR}/clang-tblgen \
     -DCLANG_DEFAULT_LINKER=lld \
-    -DLLVM_DEFAULT_TARGET_TRIPLE=mips-sgi-irix6.5 \
+    -DLLVM_DEFAULT_TARGET_TRIPLE=mips64-sgi-irix6.5 \
     -DLLVM_TARGET_ARCH=Mips \
     -DLLVM_TARGETS_TO_BUILD=Mips \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_OPTIMIZED_TABLEGEN=On \
     -DCMAKE_C_COMPILER="${CROSS_CC}" -DCMAKE_CXX_COMPILER="${CROSS_CXX}" \
-    -DLLVM_INCLUDE_TESTS=Off -DLLVM_INCLUDE_EXAMPLES=Off \
+    -DLLVM_INCLUDE_RUNTIMES=Off \
+    -DLLVM_INCLUDE_EXAMPLES=Off \
+    -DLLVM_INCLUDE_BENCHMARKS=Off \
+    -DLLVM_INCLUDE_TESTS=Off \
+    -DLLVM_INCLUDE_UTILS=Off \
+    -DLLVM_INCLUDE_GO_TESTS=Off \
+    -DCMAKE_C_FLAGS="-I=/usr/xg/include" \
+    -DCMAKE_CXX_FLAGS="-I=/usr/xg/include" \
+    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
+    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
     ${RELDIR}/llvm
-
 
