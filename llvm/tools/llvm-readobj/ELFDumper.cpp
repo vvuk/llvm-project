@@ -66,6 +66,10 @@
 #include <system_error>
 #include <vector>
 
+#ifdef __sgi
+#include <strnlen.h>
+#endif
+
 using namespace llvm;
 using namespace llvm::object;
 using namespace ELF;

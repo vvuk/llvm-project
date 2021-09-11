@@ -23,6 +23,12 @@
 #include "llvm/ADT/iterator.h"
 #include "llvm/Support/Error.h"
 
+// irix defines _G in ctype.h so... I can't blame it,
+// this really shouldn't use _G?
+#ifdef __sgi
+#undef _G
+#endif
+
 namespace llvm {
 namespace xray {
 

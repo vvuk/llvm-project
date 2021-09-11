@@ -20,6 +20,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include <map>
 
+#ifdef __sgi
+#include <strnlen.h>
+#endif
+
 namespace llvm {
 
 static inline Error createError(const Twine &Msg) {

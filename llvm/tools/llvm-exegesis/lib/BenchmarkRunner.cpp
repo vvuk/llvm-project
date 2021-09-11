@@ -105,7 +105,7 @@ private:
         PS.reset();
         if (Crashed) {
           std::string Msg = "snippet crashed while running";
-#ifdef LLVM_ON_UNIX
+#if defined(LLVM_ON_UNIX) && !defined(__sgi)
           // See "Exit Status for Commands":
           // https://pubs.opengroup.org/onlinepubs/9699919799/xrat/V4_xcu_chap02.html
           constexpr const int kSigOffset = 128;
