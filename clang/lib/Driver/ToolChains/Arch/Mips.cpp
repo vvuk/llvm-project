@@ -75,6 +75,12 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
                   .Default(ABIName);
   }
 
+  if (Triple.isOSIRIX() && (ABIName == "n64" && CPUName.empty())) {
+    // On IRIX, when building n64 the default arch is mips4.
+    // Otherwise (for n32/o32) it's mips3.
+    CPUName = "mips4";
+  }
+
   // Setup default CPU and ABI names.
   if (CPUName.empty() && ABIName.empty()) {
     switch (Triple.getArch()) {
