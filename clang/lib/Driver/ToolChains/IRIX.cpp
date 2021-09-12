@@ -163,7 +163,7 @@ void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
   if (!DriverArgs.hasFlag(options::OPT_fuse_init_array,
                           options::OPT_fno_use_init_array, UseInitArrayDefault))
     CC1Args.push_back("-fno-use-init-array");
-  if (!DriverArgs.hasFlag(options::OPT_femulated_tls,
+  if (DriverArgs.hasFlag(options::OPT_femulated_tls,
                           options::OPT_fno_emulated_tls, UseEmulatedTLS))
     CC1Args.push_back("-femulated-tls");
 }
