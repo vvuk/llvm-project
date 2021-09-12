@@ -62,23 +62,6 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   Paths.push_back(SysRoot + "/usr/" + OSLibDir);
   Paths.push_back(SysRoot + "/" + OSLibDir);
 
-#ifdef ENABLE_LINKER_BUILD_ID
-  ExtraOpts.push_back("--build-id");
-#endif
-
-//#define BINUTILS_LD_BUILD
-#ifndef BINUTILS_LD_BUILD
-  // Without this, lld will fail to link, since it's looking for
-  // code defined inside rld
-  ExtraOpts.push_back("--allow-shlib-undefined");
-  ExtraOpts.push_back("-lm");
-
-  // Hack for shared libraries, otherwise they take the wrong base address
-  // and rld isn't happy
-  // This doesn't work on Binutils LD
-  ExtraOpts.push_back("-image-base=0x10000");
-#endif
-
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
   // those searched.
@@ -162,8 +145,20 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
 void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
                                    ArgStringList &CC1Args,
                                    Action::OffloadKind) const {
-  bool UseInitArrayDefault = false;
-  bool UseEmulatedTLS = true;
+  const bool UseInitArrayDefault = false;
+  const bool UseEmulatedTLS = true;
+  const bool UseMipsPc64RelDefault = false;
+
+  // TODO IRIX -- figure out if this is actually needed to set to false; if it is,
+  // and we still want to allow overriding it, then we need to do some work here because
+  // the mips-pc64-rel arg can only be passed a maxmimum of one times.
+  bool pc64rel = DriverArgs.hasFlag(options::OPT_mmips_pc64_rel,
+    options::OPT_mno_mips_pc64_rel, UseMipsPc64RelDefault);
+  CC1Args.push_back("-mllvm");
+  if (pc64rel)
+    CC1Args.push_back("-mmips-pc64-rel=true");
+  else
+    CC1Args.push_back("-mmips-pc64-rel=false");
 
   if (!DriverArgs.hasFlag(options::OPT_fuse_init_array,
                           options::OPT_fno_use_init_array, UseInitArrayDefault))
@@ -173,9 +168,33 @@ void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
     CC1Args.push_back("-femulated-tls");
 }
 
-void IRIX::addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {
-  for (const auto &Opt : ExtraOpts)
-    CmdArgs.push_back(Opt.c_str());
+void IRIX::addExtraOpts(llvm::opt::ArgStringList &Args) const {
+#ifdef ENABLE_LINKER_BUILD_ID
+  Args.push_back("--build-id");
+#endif
+
+#ifndef BINUTILS_LD_BUILD
+  // Without this, lld will fail to link, since it's looking for
+  // code defined inside rld
+  Args.push_back("--allow-shlib-undefined");
+
+  // TODO -- need to guard this with notstdlib (again need to use irix::Linker::ConstructJob)
+  Args.push_back("-lc");
+  Args.push_back("-lm");
+
+  // needed for a bunch of std C stuff
+  Args.push_back("-lgen");
+
+  // Hack for shared libraries, otherwise they take the wrong base address
+  // and rld isn't happy
+  // This doesn't work on Binutils LD
+  // TODO -- only do this if --shared, but we don't have access to args.
+  // fix when we use irix::Linker::ConstructJob below.
+  Args.push_back("-image-base=0x10000");
+
+  Args.push_back("-init=__gcc_init");
+  Args.push_back("-fini=__gcc_fini");
+#endif
 }
 
 #if false

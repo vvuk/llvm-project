@@ -186,7 +186,7 @@ static bool isEligible(InputSection *s) {
   // IRIX GCC traditionally uses .gcc_init and .gcc_fini instead for
   // compatibility with MIPSPro
   if (s->name == ".init" || s->name == ".fini" || 
-                          s->name == ".gcc_init" || s->name == ".gcc_fini")
+      s->name == ".gcc_init" || s->name == ".gcc_fini")
     return false;
 
   // A user program may enumerate sections named with a C identifier using

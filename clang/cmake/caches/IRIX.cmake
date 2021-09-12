@@ -94,11 +94,11 @@ endif()
 # TODO IRIX -- -D_WCHAR_T tells irix includes to omit the wchar_t typedef.
 # we should add an include file override that includes this if we're building C++
 # code.
-set(LIBCXXABI_COMPILE_FLAGS "-I=/usr/xg/include -D_WCHAR_T" CACHE STRING "")
-set(LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib32 -lxg -lc -lgen" CACHE STRING "")
+set(LIBCXXABI_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
+set(LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
 
-set(LIBCXX_COMPILE_FLAGS "-I=/usr/xg/include -D_WCHAR_T" CACHE STRING "")
-set(LIBCXX_LINK_FLAGS "-L=/usr/xg/lib32 -lxg -lc -lgen" CACHE STRING "")
+set(LIBCXX_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
+set(LIBCXX_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
 
 set(BOOTSTRAP_LLVM_ENABLE_LTO ON CACHE BOOL "")
 set(BOOTSTRAP_LLVM_ENABLE_LLD ON CACHE BOOL "")
