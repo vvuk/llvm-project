@@ -151,6 +151,20 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   
 }
 
+void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
+                                   ArgStringList &CC1Args,
+                                   Action::OffloadKind) const {
+  bool UseInitArrayDefault = false;
+  bool UseEmulatedTLS = true;
+
+  if (!DriverArgs.hasFlag(options::OPT_fuse_init_array,
+                          options::OPT_fno_use_init_array, UseInitArrayDefault))
+    CC1Args.push_back("-fno-use-init-array");
+  if (!DriverArgs.hasFlag(options::OPT_femulated_tls,
+                          options::OPT_fno_emulated_tls, UseEmulatedTLS))
+    CC1Args.push_back("-femulated-tls");
+}
+
 void IRIX::addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {
   for (const auto &Opt : ExtraOpts)
     CmdArgs.push_back(Opt.c_str());
