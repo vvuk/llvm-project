@@ -276,20 +276,23 @@ static const char *getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   case llvm::Triple::sparcv9:
     return "elf64_sparc";
   case llvm::Triple::mips:
-    if (T.isOSIRIX() && (tools::mips::hasMipsAbiArg(Args, "n32") ||
-        T.getEnvironment() == llvm::Triple::GNUABIN32))
-      //return "elf32bmipn32";
+    if (tools::mips::hasMipsAbiArg(Args, "n32") ||
+        T.getEnvironment() == llvm::Triple::GNUABIN32)
+      return "elf32btsmipn32";
+    // HACK IRIX -- we're assuming we're using lld, gnu ld doesn't understand _irix
+    if (T.isOSIRIX() && !tools::mips::hasMipsAbiArg(Args, "o32"))
+      return "elf32btsmipn32_irix";
     return "elf32btsmip";
-  case llvm::Triple::mipsel:
-    return "elf32ltsmip";
   case llvm::Triple::mips64:
     if (tools::mips::hasMipsAbiArg(Args, "n32") ||
-        T.getEnvironment() == llvm::Triple::GNUABIN32) {
-          if (T.isOSIRIX())
-            //return "elf32bmipn32";
-          return "elf32btsmipn32";
-        }
+        T.getEnvironment() == llvm::Triple::GNUABIN32)
+        return "elf32btsmipn32";
+    // HACK IRIX -- we're assuming we're using lld, gnu ld doesn't understand _irix
+    if (T.isOSIRIX() && !tools::mips::hasMipsAbiArg(Args, "n64"))
+        return "elf32btsmipn32_irix";
     return "elf64btsmip";
+  case llvm::Triple::mipsel:
+    return "elf32ltsmip";
   case llvm::Triple::mips64el:
     if (tools::mips::hasMipsAbiArg(Args, "n32") ||
         T.getEnvironment() == llvm::Triple::GNUABIN32)
@@ -401,6 +404,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const llvm::Triple::ArchType Arch = ToolChain.getArch();
   const bool isAndroid = ToolChain.getTriple().isAndroid();
   const bool IsIAMCU = ToolChain.getTriple().isOSIAMCU();
+  const bool IsIRIX = ToolChain.getTriple().isOSIRIX();
   const bool IsVE = ToolChain.getTriple().isVE();
   const bool IsPIE = getPIE(Args, ToolChain);
   const bool IsStaticPIE = getStaticPIE(Args, ToolChain);
@@ -517,7 +521,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (crt1)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crt1)));
 
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
+      if (IsIRIX)
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crti.o")));
+      else
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
     }
 
     if (IsVE) {
@@ -669,6 +676,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         }
         CmdArgs.push_back(Args.MakeArgString(P));
       }
+      // TODO IRIX temp hack -- we need both irix-crtn.o and crtn.o
+      if (IsIRIX)
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crtn.o")));
       if (!isAndroid)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
@@ -1882,8 +1892,15 @@ static llvm::StringRef getGCCToolchainDir(const ArgList &Args,
   // If we have a SysRoot, ignore GCC_INSTALL_PREFIX.
   // GCC_INSTALL_PREFIX specifies the gcc installation for the default
   // sysroot and is likely not valid with a different sysroot.
+  //
+  // XXvlad This is a really weird thing, because it means that a build
+  // that explicity specifies DEFAULT_SYSROOT (for a cross compiler) and
+  // GCC_INSTALL_PREFIX (because it happens to be somewhere not in that
+  // sysroot) breaks
+  #if false
   if (!SysRoot.empty())
     return "";
+  #endif
 
   return GCC_INSTALL_PREFIX;
 }

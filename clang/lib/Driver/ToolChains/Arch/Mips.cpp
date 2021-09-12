@@ -56,6 +56,11 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
     DefMips64CPU = "mips3";
   }
 
+  if (Triple.isOSIRIX()) {
+    DefMips32CPU = "mips3";
+    DefMips64CPU = "mips3";
+  }
+
   if (Arg *A = Args.getLastArg(clang::driver::options::OPT_march_EQ,
                                options::OPT_mcpu_EQ))
     CPUName = A->getValue();
@@ -68,6 +73,12 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
                   .Case("32", "o32")
                   .Case("64", "n64")
                   .Default(ABIName);
+  }
+
+  if (Triple.isOSIRIX() && (ABIName == "n64" && CPUName.empty())) {
+    // On IRIX, when building n64 the default arch is mips4.
+    // Otherwise (for n32/o32) it's mips3.
+    CPUName = "mips4";
   }
 
   // Setup default CPU and ABI names.
@@ -112,6 +123,9 @@ void mips::getMipsCPUAndABI(const ArgList &Args, const llvm::Triple &Triple,
                   .Case("p5600", "o32")
                   .Default("");
   }
+
+  if (ABIName.empty() && Triple.isOSIRIX())
+    ABIName = "n32";
 
   if (ABIName.empty()) {
     // Deduce ABI name from the target triple.

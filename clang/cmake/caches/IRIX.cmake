@@ -1,0 +1,140 @@
+# This file sets up a CMakeCache for a IRIX toolchain build.
+
+set(LLVM_TARGETS_TO_BUILD Mips CACHE STRING "")
+
+set(PACKAGE_VENDOR IRIX CACHE STRING "")
+
+set(LLVM_ENABLE_PROJECTS "clang;clang-tools-extra;lld;llvm" CACHE STRING "")
+set(LLVM_DEFAULT_TARGET_TRIPLE "mips64-sgi-irix6.5" CACHE STRING "")
+
+set(LLVM_ENABLE_BACKTRACES OFF CACHE BOOL "")
+set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ON CACHE BOOL "")
+set(LLVM_ENABLE_TERMINFO OFF CACHE BOOL "")
+set(LLVM_ENABLE_UNWIND_TABLES OFF CACHE BOOL "")
+set(LLVM_ENABLE_ZLIB OFF CACHE BOOL "")
+set(LLVM_INCLUDE_DOCS OFF CACHE BOOL "")
+# TODO -- enable tests at some point
+set(LLVM_INCLUDE_TESTS OFF CACHE BOOL "")
+set(LLVM_INCLUDE_EXAMPLES OFF CACHE BOOL "")
+set(LLVM_INCLUDE_GO_TESTS OFF CACHE BOOL "")
+set(LLVM_INCLUDE_BENCHMARKS OFF CACHE BOOL "")
+
+if(MSVC)
+  set(LLVM_USE_CRT_RELEASE "MT" CACHE STRING "")
+endif()
+
+set(CLANG_DEFAULT_CXX_STDLIB libc++ CACHE STRING "")
+set(CLANG_DEFAULT_LINKER lld CACHE STRING "")
+set(CLANG_DEFAULT_OBJCOPY llvm-objcopy CACHE STRING "")
+# Stage1 build with libgcc RT for now
+#set(CLANG_DEFAULT_RTLIB compiler-rt CACHE STRING "")
+set(CLANG_DEFAULT_RTLIB libgcc CACHE STRING "")
+
+set(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
+set(CLANG_ENABLE_STATIC_ANALYZER OFF CACHE BOOL "")
+set(CLANG_PLUGIN_SUPPORT OFF CACHE BOOL "")
+
+set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER ON CACHE BOOL "")
+set(ENABLE_LINKER_BUILD_ID ON CACHE BOOL "")
+set(ENABLE_X86_RELAX_RELOCATIONS ON CACHE BOOL "")
+
+set(LLVM_ENABLE_ASSERTIONS ON CACHE BOOL "")
+# Eventually just do release builds
+#set(CMAKE_BUILD_TYPE Release CACHE STRING "")
+set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "")
+if(APPLE)
+  set(MACOSX_DEPLOYMENT_TARGET 10.7 CACHE STRING "")
+elseif(MSVC)
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "")
+endif()
+
+if(APPLE)
+  set(COMPILER_RT_ENABLE_IOS OFF CACHE BOOL "")
+  set(COMPILER_RT_ENABLE_TVOS OFF CACHE BOOL "")
+  set(COMPILER_RT_ENABLE_WATCHOS OFF CACHE BOOL "")
+endif()
+
+set(LIBUNWIND_ENABLE_SHARED OFF CACHE BOOL "")
+set(LIBUNWIND_INSTALL_LIBRARY OFF CACHE BOOL "")
+###set(LIBUNWIND_USE_COMPILER_RT ON CACHE BOOL "")
+set(LIBUNWIND_USE_COMPILER_RT OFF CACHE BOOL "")
+
+set(LIBCXXABI_ENABLE_SHARED OFF CACHE BOOL "")
+set(LIBCXXABI_ENABLE_STATIC_UNWINDER ON CACHE BOOL "")
+set(LIBCXXABI_INSTALL_LIBRARY OFF CACHE BOOL "")
+###set(LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
+set(LIBCXXABI_USE_COMPILER_RT OFF CACHE BOOL "")
+###set(LIBCXXABI_USE_LLVM_UNWINDER ON CACHE BOOL "")
+set(LIBCXXABI_USE_LLVM_UNWINDER OFF CACHE BOOL "")
+
+set(LIBCXX_ABI_VERSION 2 CACHE STRING "")
+set(LIBCXX_ENABLE_SHARED OFF CACHE BOOL "")
+
+if(WIN32)
+  set(LIBCXX_HAS_WIN32_THREAD_API ON CACHE BOOL "")
+  set(LIBCXX_ENABLE_EXPERIMENTAL_LIBRARY OFF CACHE BOOL "")
+  set(LIBCXX_ENABLE_FILESYSTEM OFF CACHE BOOL "")
+  set(LIBCXX_ENABLE_ABI_LINKER_SCRIPT OFF CACHE BOOL "")
+  set(LIBCXX_ENABLE_STATIC_ABI_LIBRARY OFF CACHE BOOL "")
+  set(BUILTINS_CMAKE_ARGS -DCMAKE_SYSTEM_NAME=Windows CACHE STRING "")
+  set(RUNTIMES_CMAKE_ARGS -DCMAKE_SYSTEM_NAME=Windows CACHE STRING "")
+  set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx" CACHE STRING "")
+else()
+  set(LIBCXX_ENABLE_STATIC_ABI_LIBRARY ON CACHE BOOL "")
+  ###set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
+  set(LLVM_ENABLE_RUNTIMES "libcxx;libcxxabi" CACHE STRING "")
+endif()
+
+if(UNIX)
+  set(BOOTSTRAP_CMAKE_SHARED_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
+  set(BOOTSTRAP_CMAKE_MODULE_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
+  set(BOOTSTRAP_CMAKE_EXE_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
+endif()
+
+# TODO IRIX -- -D_WCHAR_T tells irix includes to omit the wchar_t typedef.
+# we should add an include file override that includes this if we're building C++
+# code.
+set(LIBCXXABI_COMPILE_FLAGS "-I=/usr/xg/include -D_WCHAR_T" CACHE STRING "")
+set(LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib32 -lxg -lc -lgen" CACHE STRING "")
+
+set(LIBCXX_COMPILE_FLAGS "-I=/usr/xg/include -D_WCHAR_T" CACHE STRING "")
+set(LIBCXX_LINK_FLAGS "-L=/usr/xg/lib32 -lxg -lc -lgen" CACHE STRING "")
+
+set(BOOTSTRAP_LLVM_ENABLE_LTO ON CACHE BOOL "")
+set(BOOTSTRAP_LLVM_ENABLE_LLD ON CACHE BOOL "")
+
+set(CLANG_BOOTSTRAP_TARGETS
+  check-all
+  check-llvm
+  check-clang
+  check-lld
+  llvm-config
+  test-suite
+  test-depends
+  llvm-test-depends
+  clang-test-depends
+  lld-test-depends
+  distribution
+  install-distribution
+  install-distribution-stripped
+  install-distribution-toolchain
+  clang CACHE STRING "")
+
+get_cmake_property(variableNames VARIABLES)
+foreach(variableName ${variableNames})
+  if(variableName MATCHES "^STAGE2_")
+    string(REPLACE "STAGE2_" "" new_name ${variableName})
+    list(APPEND EXTRA_ARGS "-D${new_name}=${${variableName}}")
+  endif()
+endforeach()
+
+# Setup the bootstrap build.
+set(CLANG_ENABLE_BOOTSTRAP ON CACHE BOOL "")
+set(CLANG_BOOTSTRAP_EXTRA_DEPS
+###  builtins
+  runtimes
+  CACHE STRING "")
+set(CLANG_BOOTSTRAP_CMAKE_ARGS
+  ${EXTRA_ARGS}
+  -C ${CMAKE_CURRENT_LIST_DIR}/IRIX-stage2.cmake
+  CACHE STRING "")

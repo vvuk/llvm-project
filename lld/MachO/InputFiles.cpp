@@ -67,6 +67,10 @@
 #include "llvm/Support/Path.h"
 #include "llvm/Support/TarWriter.h"
 
+#ifdef __sgi
+#include <strnlen.h>
+#endif
+
 using namespace llvm;
 using namespace llvm::MachO;
 using namespace llvm::support::endian;

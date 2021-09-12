@@ -21,6 +21,10 @@
 #include "llvm/Support/LEB128.h"
 #include <system_error>
 
+#ifdef __sgi
+#include <strnlen.h>
+#endif
+
 namespace lld {
 namespace mach_o {
 namespace normalized {

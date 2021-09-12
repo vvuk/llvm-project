@@ -1539,8 +1539,13 @@ template <class ELFT> void SharedFile::parse() {
     // symbol, that's a violation of the spec.
     StringRef name = CHECK(sym.getName(this->stringTable), this);
     if (sym.getBinding() == STB_LOCAL) {
-      warn("found local symbol '" + name +
-           "' in global part of symbol table in file " + toString(this) + "--" + Twine(i));
+      // MIPSPro puts the names of all sections in the dynamic symbol table with type SECTION
+      // and LOCAL, which triggers this warning.  All OS libraries trigger this, so just skip
+      // warning on irix, and ignore the symbol
+      if (!(config->osabi == ELFOSABI_IRIX && sym.getType() == STT_SECTION)) {
+        warn("found local symbol '" + name +
+             "' in global part of symbol table in file " + toString(this) + "--" + Twine(i));
+      }
       continue;
     }
 

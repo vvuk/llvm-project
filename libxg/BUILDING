@@ -1,0 +1,7 @@
+To build for IRIX:
+
+cd src
+
+Flag the makefile however you like. I suggest keeping -g; there's no need to optimize such small code
+
+it should work with both IRIX and GNU make. I was able to verify successful compilation.

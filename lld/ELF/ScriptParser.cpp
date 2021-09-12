@@ -439,6 +439,8 @@ void ScriptParser::readOutputFormat() {
   StringRef s = config->bfdname;
   if (s.consume_back("-freebsd"))
     config->osabi = ELFOSABI_FREEBSD;
+  if (s.consume_back("-irix"))
+    config->osabi = ELFOSABI_IRIX;
 
   std::tie(config->ekind, config->emachine) = parseBfdName(s);
   if (config->emachine == EM_NONE)

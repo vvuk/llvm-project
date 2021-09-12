@@ -16,18 +16,21 @@
 #include "llvm/Support/VirtualFileSystem.h"
 
 using namespace clang::driver;
+using namespace clang::driver::tools;
 using namespace clang::driver::toolchains;
 using namespace clang;
 using namespace llvm::opt;
 
 using tools::addPathIfExists;
 
-static StringRef getOSLibDir(const llvm::Triple &Triple, const ArgList &Args) {
-  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
+static StringRef getOSLibDir(StringRef abi) {
+  if (abi == "n32")
     return "lib32";
-  } else {
+  if (abi == "n64")
     return "lib64";
-  }
+  if (abi == "o32")
+    return "lib";
+  llvm_unreachable("Invalid abi for getOSLibDir");
 }
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
@@ -51,7 +54,9 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   StringRef ABIName;
   tools::mips::getMipsCPUAndABI(Args, Triple, CPUName, ABIName);
 
-  const std::string OSLibDir = std::string(getOSLibDir(Triple, Args));
+  mABI = ABIName;
+
+  const std::string OSLibDir = std::string(getOSLibDir(ABIName));
   const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
   Paths.push_back(SysRoot + "/usr/" + OSLibDir + "/" + CPUName.data());
   Paths.push_back(SysRoot + "/usr/" + OSLibDir);
@@ -90,17 +95,20 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 bool IRIX::HasNativeLLVMSupport() const { return true; }
 
 Tool *IRIX::buildLinker() const { return new tools::gnutools::Linker(*this); }
+//Tool *IRIX::buildLinker() const { return new tools::irix::Linker(*this); }
 
 Tool *IRIX::buildAssembler() const {
   return new tools::gnutools::Assembler(*this);
 }
 
-std::string IRIX::getDynamicLinker(const ArgList &Args) const {
-  if (tools::mips::hasMipsAbiArg(Args, "n32")) {
+std::string IRIX::getDynamicLinker(const llvm::opt::ArgList &Args) const {
+  if (mABI == "n32")
     return "/usr/lib32/libc.so.1";
-  } else {
+  if (mABI == "n64")
     return "/usr/lib64/libc.so.1";
-  }
+  if (mABI == "o32")
+    return "/usr/lib/libc.so.1";
+  llvm_unreachable("Bad ABI in getDynamicLinker");
 }
 
 void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
@@ -169,3 +177,245 @@ void IRIX::addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const {
   for (const auto &Opt : ExtraOpts)
     CmdArgs.push_back(Opt.c_str());
 }
+
+#if false
+void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
+                                   const InputInfo &Output,
+                                   const InputInfoList &Inputs,
+                                   const ArgList &Args,
+                                   const char *LinkingOutput) const {
+  const toolchains::IRIX &ToolChain =
+      static_cast<const toolchains::IRIX &>(getToolChain());
+  const Driver &D = ToolChain.getDriver();
+  const llvm::Triple::ArchType Arch = ToolChain.getArch();
+  const bool IsPIE =
+      !Args.hasArg(options::OPT_shared) &&
+      (Args.hasArg(options::OPT_pie) || ToolChain.isPIEDefault());
+
+  ArgStringList CmdArgs;
+
+  // Silence warning for "clang -g foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_g_Group);
+  // and "clang -emit-llvm foo.o -o foo"
+  Args.ClaimAllArgs(options::OPT_emit_llvm);
+  // and for "clang -w foo.o -o foo". Other warning options are already
+  // handled somewhere else.
+  Args.ClaimAllArgs(options::OPT_w);
+
+  if (!D.SysRoot.empty())
+    CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
+
+  if (IsPIE)
+    CmdArgs.push_back("-pie");
+
+  CmdArgs.push_back("--eh-frame-hdr");
+
+  if (Args.hasArg(options::OPT_static)) {
+    CmdArgs.push_back("-static");
+  } else {
+    if (Args.hasArg(options::OPT_rdynamic))
+      CmdArgs.push_back("-export-dynamic");
+    if (Args.hasArg(options::OPT_shared)) {
+      CmdArgs.push_back("-shared");
+    } else {
+      CmdArgs.push_back("-dynamic-linker");
+      CmdArgs.push_back(Args.MakeArgString(Twine(D.DyldPrefix) +
+                                           ToolChain.getDynamicLinker(Args)));
+    }
+    const llvm::Triple &T = ToolChain.getTriple();
+    if (T.getOSMajorVersion() >= 9) {
+      if (Arch == llvm::Triple::arm || Arch == llvm::Triple::sparc || T.isX86())
+        CmdArgs.push_back("--hash-style=both");
+    }
+    CmdArgs.push_back("--enable-new-dtags");
+  }
+
+  // Explicitly set the linker emulation for platforms that might not
+  // be the default emulation for the linker.
+  switch (Arch) {
+  case llvm::Triple::x86:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf_i386_fbsd");
+    break;
+  case llvm::Triple::ppc:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf32ppc_fbsd");
+    break;
+  case llvm::Triple::ppcle:
+    CmdArgs.push_back("-m");
+    // Use generic -- only usage is for freestanding.
+    CmdArgs.push_back("elf32lppc");
+    break;
+  case llvm::Triple::mips:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf32btsmip_fbsd");
+    break;
+  case llvm::Triple::mipsel:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf32ltsmip_fbsd");
+    break;
+  case llvm::Triple::mips64:
+    CmdArgs.push_back("-m");
+    if (tools::mips::hasMipsAbiArg(Args, "n32"))
+      CmdArgs.push_back("elf32btsmipn32_fbsd");
+    else
+      CmdArgs.push_back("elf64btsmip_fbsd");
+    break;
+  case llvm::Triple::mips64el:
+    CmdArgs.push_back("-m");
+    if (tools::mips::hasMipsAbiArg(Args, "n32"))
+      CmdArgs.push_back("elf32ltsmipn32_fbsd");
+    else
+      CmdArgs.push_back("elf64ltsmip_fbsd");
+    break;
+  case llvm::Triple::riscv32:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf32lriscv");
+    break;
+  case llvm::Triple::riscv64:
+    CmdArgs.push_back("-m");
+    CmdArgs.push_back("elf64lriscv");
+    break;
+  default:
+    break;
+  }
+
+  if (Arg *A = Args.getLastArg(options::OPT_G)) {
+    if (ToolChain.getTriple().isMIPS()) {
+      StringRef v = A->getValue();
+      CmdArgs.push_back(Args.MakeArgString("-G" + v));
+      A->claim();
+    }
+  }
+
+  if (Output.isFilename()) {
+    CmdArgs.push_back("-o");
+    CmdArgs.push_back(Output.getFilename());
+  } else {
+    assert(Output.isNothing() && "Invalid output.");
+  }
+
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
+    const char *crt1 = nullptr;
+    if (!Args.hasArg(options::OPT_shared)) {
+      if (Args.hasArg(options::OPT_pg))
+        crt1 = "gcrt1.o";
+      else if (IsPIE)
+        crt1 = "Scrt1.o";
+      else
+        crt1 = "crt1.o";
+    }
+    if (crt1)
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crt1)));
+
+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
+
+    const char *crtbegin = nullptr;
+    if (Args.hasArg(options::OPT_static))
+      crtbegin = "crtbeginT.o";
+    else if (Args.hasArg(options::OPT_shared) || IsPIE)
+      crtbegin = "crtbeginS.o";
+    else
+      crtbegin = "crtbegin.o";
+
+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin)));
+  }
+
+  Args.AddAllArgs(CmdArgs, options::OPT_L);
+  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
+  Args.AddAllArgs(CmdArgs, options::OPT_T_Group);
+  Args.AddAllArgs(CmdArgs, options::OPT_e);
+  Args.AddAllArgs(CmdArgs, options::OPT_s);
+  Args.AddAllArgs(CmdArgs, options::OPT_t);
+  Args.AddAllArgs(CmdArgs, options::OPT_Z_Flag);
+  Args.AddAllArgs(CmdArgs, options::OPT_r);
+
+  if (D.isUsingLTO()) {
+    assert(!Inputs.empty() && "Must have at least one input.");
+    addLTOOptions(ToolChain, Args, CmdArgs, Output, Inputs[0],
+                  D.getLTOMode() == LTOK_Thin);
+  }
+
+  bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
+  bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
+  AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
+
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    // Use the static OpenMP runtime with -static-openmp
+    bool StaticOpenMP = Args.hasArg(options::OPT_static_openmp) &&
+                        !Args.hasArg(options::OPT_static);
+    addOpenMPRuntime(CmdArgs, ToolChain, Args, StaticOpenMP);
+
+    if (D.CCCIsCXX()) {
+      if (ToolChain.ShouldLinkCXXStdlib(Args))
+        ToolChain.AddCXXStdlibLibArgs(Args, CmdArgs);
+      if (Args.hasArg(options::OPT_pg))
+        CmdArgs.push_back("-lm_p");
+      else
+        CmdArgs.push_back("-lm");
+    }
+    if (NeedsSanitizerDeps)
+      linkSanitizerRuntimeDeps(ToolChain, CmdArgs);
+    if (NeedsXRayDeps)
+      linkXRayRuntimeDeps(ToolChain, CmdArgs);
+    // FIXME: For some reason GCC passes -lgcc and -lgcc_s before adding
+    // the default system libraries. Just mimic this for now.
+    if (Args.hasArg(options::OPT_pg))
+      CmdArgs.push_back("-lgcc_p");
+    else
+      CmdArgs.push_back("-lgcc");
+    if (Args.hasArg(options::OPT_static)) {
+      CmdArgs.push_back("-lgcc_eh");
+    } else if (Args.hasArg(options::OPT_pg)) {
+      CmdArgs.push_back("-lgcc_eh_p");
+    } else {
+      CmdArgs.push_back("--as-needed");
+      CmdArgs.push_back("-lgcc_s");
+      CmdArgs.push_back("--no-as-needed");
+    }
+
+    if (Args.hasArg(options::OPT_pthread)) {
+      if (Args.hasArg(options::OPT_pg))
+        CmdArgs.push_back("-lpthread_p");
+      else
+        CmdArgs.push_back("-lpthread");
+    }
+
+    if (Args.hasArg(options::OPT_pg)) {
+      if (Args.hasArg(options::OPT_shared))
+        CmdArgs.push_back("-lc");
+      else
+        CmdArgs.push_back("-lc_p");
+      CmdArgs.push_back("-lgcc_p");
+    } else {
+      CmdArgs.push_back("-lc");
+      CmdArgs.push_back("-lgcc");
+    }
+
+    if (Args.hasArg(options::OPT_static)) {
+      CmdArgs.push_back("-lgcc_eh");
+    } else if (Args.hasArg(options::OPT_pg)) {
+      CmdArgs.push_back("-lgcc_eh_p");
+    } else {
+      CmdArgs.push_back("--as-needed");
+      CmdArgs.push_back("-lgcc_s");
+      CmdArgs.push_back("--no-as-needed");
+    }
+  }
+
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
+    if (Args.hasArg(options::OPT_shared) || IsPIE)
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtendS.o")));
+    else
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtend.o")));
+    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
+  }
+
+  ToolChain.addProfileRTLibs(Args, CmdArgs);
+
+  const char *Exec = Args.MakeArgString(getToolChain().GetLinkerPath());
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileCurCP(),
+                                         Exec, CmdArgs, Inputs, Output));
+}
+#endif

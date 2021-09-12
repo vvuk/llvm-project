@@ -23,6 +23,7 @@
 #include <system_error>
 
 #ifdef __sgi
+// Some common things that come from libxg on irix
 #include <setenv.h>
 #include <strnlen.h>
 #endif
