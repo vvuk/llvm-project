@@ -406,6 +406,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const llvm::Triple::ArchType Arch = ToolChain.getArch();
   const bool isAndroid = ToolChain.getTriple().isAndroid();
   const bool IsIAMCU = ToolChain.getTriple().isOSIAMCU();
+  const bool IsIRIX = ToolChain.getTriple().isOSIRIX();
   const bool IsVE = ToolChain.getTriple().isVE();
   const bool IsPIE = getPIE(Args, ToolChain);
   const bool IsStaticPIE = getStaticPIE(Args, ToolChain);
@@ -522,7 +523,10 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (crt1)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crt1)));
 
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
+      if (IsIRIX)
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crti.o")));
+      else
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
     }
 
     if (IsVE) {
@@ -674,6 +678,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         }
         CmdArgs.push_back(Args.MakeArgString(P));
       }
+      // TODO IRIX temp hack -- we need both irix-crtn.o and crtn.o
+      if (IsIRIX)
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crtn.o")));
       if (!isAndroid)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
     }
