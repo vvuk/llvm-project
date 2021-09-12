@@ -223,11 +223,11 @@ endif()
 # LIBCXXABI_LINK_FLAGS: Linker only flags.
 # LIBCXXABI_LIBRARIES: libraries libc++abi is linked to.
 
-set(LIBCXXABI_C_FLAGS "")
-set(LIBCXXABI_CXX_FLAGS "")
-set(LIBCXXABI_COMPILE_FLAGS "")
-set(LIBCXXABI_LINK_FLAGS "")
-set(LIBCXXABI_LIBRARIES "")
+set(LIBCXXABI_C_FLAGS "" CACHE STRING "")
+set(LIBCXXABI_CXX_FLAGS "" CACHE STRING "")
+set(LIBCXXABI_COMPILE_FLAGS "" CACHE STRING "")
+set(LIBCXXABI_LINK_FLAGS "" CACHE STRING "")
+set(LIBCXXABI_LIBRARIES "" CACHE STRING "")
 
 # Include macros for adding and removing libc++abi flags.
 include(HandleLibcxxabiFlags)
