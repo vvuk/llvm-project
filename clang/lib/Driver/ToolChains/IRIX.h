@@ -29,6 +29,10 @@ public:
 
   std::string getDynamicLinker(const llvm::opt::ArgList &Args) const override;
 
+  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                             llvm::opt::ArgStringList &CC1Args,
+                             Action::OffloadKind DeviceOffloadKind) const override;
+
   void addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const override;
 
   std::vector<std::string> ExtraOpts;
