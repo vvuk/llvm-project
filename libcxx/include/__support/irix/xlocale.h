@@ -23,14 +23,14 @@ static inline
 size_t wcsnrtombs(char *__dest, const wchar_t **__src, size_t __nwc,
     size_t __len, mbstate_t *__ps)
 {
-  return NULL;
+  return 0;
 }
 
 static inline
 size_t mbsnrtowcs(wchar_t * __dest, const char **__src, size_t __nms,
     size_t __len, mbstate_t *__ps)
 {
-  return NULL;
+  return 0;
 }
 
 #include <__support/xlocale/__posix_l_fallback.h>
@@ -39,13 +39,13 @@ size_t mbsnrtowcs(wchar_t * __dest, const char **__src, size_t __nms,
 static inline
 int vasprintf(char **strp, const char *fmt, va_list ap)
 {
-  const size_t buff_size = 256;
+  const int buf_size = 256;
   int str_size;
-  if ((*strp = (char *)malloc(buff_size)) == NULL)
+  if ((*strp = (char *)malloc(buf_size)) == NULL)
   {
     return -1;
   }
-  if ((str_size = vsnprintf(*strp, buff_size, fmt,  ap)) >= buff_size)
+  if ((str_size = vsnprintf(*strp, buf_size, fmt,  ap)) >= buf_size)
   {
     if ((*strp = (char *)realloc(*strp, str_size + 1)) == NULL)
     {
