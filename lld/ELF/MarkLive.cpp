@@ -180,6 +180,7 @@ static bool isReserved(InputSectionBase *sec) {
     StringRef s = sec->name;
     return s.startswith(".ctors") || s.startswith(".dtors") ||
            s.startswith(".init") || s.startswith(".fini") ||
+           s.startswith(".gcc_init") || s.startswith(".gcc_fini") ||
            s.startswith(".jcr");
   }
 }
