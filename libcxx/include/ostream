@@ -263,16 +263,12 @@ basic_ostream<_CharT, _Traits>::sentry::sentry(basic_ostream<_CharT, _Traits>& _
     : __ok_(false),
       __os_(__os)
 {
-    printf("LOCATION ONE\n");
     if (__os.good())
     {
-        printf("LOCATION FIVE\n");
         if (__os.tie())
             __os.tie()->flush();
         __ok_ = true;
-        printf("LOCATION SIX\n");
     }
-    printf("LOCATION FOUR\n");
 }
 
 template <class _CharT, class _Traits>
@@ -726,9 +722,7 @@ __put_character_sequence(basic_ostream<_CharT, _Traits>& __os,
     try
     {
 #endif  // _LIBCPP_NO_EXCEPTIONS
-        printf("LOCATION TWO\n");
         typename basic_ostream<_CharT, _Traits>::sentry __s(__os);
-        printf("LOCATION THREE\n");
         if (__s)
         {
             typedef ostreambuf_iterator<_CharT, _Traits> _Ip;

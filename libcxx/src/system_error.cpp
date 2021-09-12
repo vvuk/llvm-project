@@ -98,14 +98,12 @@ handle_strerror_r_return(int strerror_return, char *buffer) {
   // Only handle EINVAL. Other errors abort.
   int new_errno = strerror_return == -1 ? errno : strerror_return;
   if (new_errno == EINVAL)
-    goto handle_strerror_r_return_fail;
+    return "";
 
   _LIBCPP_ASSERT(new_errno == ERANGE, "unexpected error from ::strerror_r");
   // FIXME maybe? 'strerror_buff_size' is likely to exceed the
   // maximum error size so ERANGE shouldn't be returned.
   std::abort();
-handle_strerror_r_return_fail:
-  return "";
 }
 
 // This function handles both GNU and POSIX variants, dispatching to

@@ -92,6 +92,16 @@ void *aligned_alloc(size_t alignment, size_t size);                       // C11
 
 #include_next <stdlib.h>
 
+#ifdef __sgi
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void abort(void) __attribute__((noreturn));
+#ifdef __cplusplus
+}
+#endif
+#endif
+
 #ifdef __cplusplus
 extern "C++" {
 // abs
