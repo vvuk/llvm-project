@@ -923,8 +923,10 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
       // know Steel Bank Common Lisp as of 2018 have this bug.
       //
       // IRIX has PC-relative relocs for .MIPS.events.* sections in crt1.o;
-      // unclear how they should be relocated, so assume zero-based like this.
-      warn(msg);
+      // unclear how they should be relocated, so assume zero-based like this;
+      // don't warn on irix, because it's in crt1.o
+      if (config->osabi != ELFOSABI_IRIX)
+        warn(msg);
       target->relocateNoSym(
           bufLoc, type,
           SignExtend64<bits>(sym.getVA(addend - offset - outSecOff)));
