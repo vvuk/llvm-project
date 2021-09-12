@@ -43,5 +43,8 @@ if [ "$FIRSTTIME" = "1" ] ; then
     echo "====="
     echo "NOTE: there are still some patches that need to happen to libgcc -- specifically, you must run"
     echo "objcopy on irix-crti.o and irix-crtn.o, and patch some headers.  A patch coming soon."
+    echo ""
+    echo "Currently building C++ code requires explicitly referencing libxg: -I =/usr/xg/include -L =/usr/xg/lib32 -lxg"
+    echo "Explicit requirement will be removed in the future."
 fi
 
