@@ -54,7 +54,7 @@ set -x
 cmake -G Ninja \
     -DLLVM_ENABLE_PROJECTS="clang;lld" \
     -DCMAKE_CROSSCOMPILING=True \
-    -DCMAKE_INSTALL_PREFIX=/usr/sgug \
+    -DCMAKE_INSTALL_PREFIX=/usr/sgug/llvm \
     -DGCC_INSTALL_PREFIX=/usr/sgug \
     -DLLVM_TABLEGEN=${NDIR}/llvm-tblgen \
     -DCLANG_TABLEGEN=${NDIR}/clang-tblgen \
