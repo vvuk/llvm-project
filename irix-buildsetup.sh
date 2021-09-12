@@ -1,11 +1,12 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ -f clang/CMakeLists.txt ] ; then
-    echo "Don't run this from the top level tree.  Make a new build directory and run with the path to the root:"
+    echo "Don't run this from the top level tree."
+    echo "Make a new build directory and run this script with a relative path:"
     echo ""
     echo "   mkdir build-irix"
     echo "   cd build-irix"
-    echo "   ../irix-buildsetup.sh"
+    echo "   ../$(basename $0)"
     exit 1
 fi
 
@@ -14,21 +15,33 @@ if [ ! -f /opt/irix/root/lib32/libc.so.1 ] ; then
     exit 1
 fi
 
+if [ ! -f /opt/irix/root/usr/xg/include/setenv.h ] ; then
+    echo "libxg stuff not found, run make install in libxg"
+    exit 1
+fi 
+
+FIRSTTIME=1
+if [ -f CMakeCache.txt ] ; then
+    FIRSTTIME=
+fi
+
 RELDIR=$(dirname $0)
 
-set -x
+# set -x in subshell to trace the cmake invocation
+(set -x ; \
 cmake -G Ninja \
-    -DLLVM_ENABLE_PROJECTS="clang;lld;compiler-rt" \
-    -DCLANG_DEFAULT_LINKER=lld \
+    -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
+    -DIRIX_mips64_SYSROOT=/opt/irix/root \
     -DDEFAULT_SYSROOT=/opt/irix/root \
-    -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug \
+    -DCLANG_DEFAULT_LINKER=lld \
+    -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
     -DGCC_INSTALL_PREFIX=/opt/irix/root/usr/sgug \
-    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-    -DLLVM_DEFAULT_TARGET_TRIPLE=mips-sgi-irix6.5 \
-    -DLLVM_TARGETS_TO_BUILD=Mips \
-    -DLLVM_OPTIMIZED_TABLEGEN=On \
-    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
-    -DLLVM_INCLUDE_TESTS=Off -DLLVM_INCLUDE_EXAMPLES=Off \
-    ${RELDIR}/llvm
+    ${RELDIR}/llvm \
+)
 
+if [ "$FIRSTTIME" = "1" ] ; then
+    echo "====="
+    echo "NOTE: there are still some patches that need to happen to libgcc -- specifically, you must run"
+    echo "objcopy on irix-crti.o and irix-crtn.o, and patch some headers.  A patch coming soon."
+fi
 
