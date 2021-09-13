@@ -32,10 +32,10 @@ NDIR=$(readlink -f ${NDIR})
 echo ${NDIR}
 
 # One day soon..
-CROSS_CC=${NDIR}/clang
-CROSS_CXX=${NDIR}/clang++
-#CROSS_CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
-#CROSS_CXX=/opt/irix/sgug/bin/mips-sgi-irix6.5-g++
+#CROSS_CC=${NDIR}/clang
+#CROSS_CXX=${NDIR}/clang++
+CROSS_CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
+CROSS_CXX=/opt/irix/sgug/bin/mips-sgi-irix6.5-g++
 
 if [ ! -f ${CROSS_CC} ] ; then
     echo "Can't find cross compiler ${CROSS_CC}, is it installed?"
@@ -73,8 +73,8 @@ cmake -G Ninja \
     -DLLVM_INCLUDE_GO_TESTS=Off \
     -DCMAKE_C_FLAGS="-I=/usr/xg/include" \
     -DCMAKE_CXX_FLAGS="-I=/usr/xg/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg" \
-    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg" \
-    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg" \
+    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
+    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
     ${RELDIR}/llvm
 
