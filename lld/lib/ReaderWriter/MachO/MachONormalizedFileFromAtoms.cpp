@@ -36,6 +36,10 @@
 #include <system_error>
 #include <unordered_set>
 
+#ifdef __sgi
+#undef sgi
+#endif
+
 using llvm::StringRef;
 using llvm::isa;
 using namespace llvm::MachO;

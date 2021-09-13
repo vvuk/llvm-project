@@ -20,6 +20,10 @@
 #include <cstring>
 #include <functional>
 
+#ifdef __sgi
+#undef R4000
+#endif
+
 namespace llvm {
 namespace pdb {
 
