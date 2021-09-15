@@ -1109,17 +1109,15 @@ template <class ELFT> void ObjFile<ELFT>::initializeSymbols() {
     // table because they are not visible from other object files. We
     // allocate symbol instances and add their pointers to symbols.
 
-    // THIS IS TEMPORARILY DISABLED, GCC FOR IRIX IS BROKEN AND MIXES LOCAL 
-    // SYMBOLS WITH GLOBAL AND WEAK SYMBOLS, LOCAL SYMBOLS SHOULD ALWAYS
-    // COME BEFORE GLOBAL AND WEAK SYMBOLS
-    // https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-79797.html
-    // https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-94076.html
-    /*if (i >= firstGlobal)
+    // TODO IRIX remove this once we fix gcc crtn/crti
+    // gcc crtn/crti.o seem to break this on IRIX, but doesn't seem like
+    // any other OS libraries do.
+    if (i >= firstGlobal && config->osabi != ELFOSABI_IRIX)
       errorOrWarn(toString(this) + ": STB_LOCAL symbol (" + Twine(i) +
                   ") found at index >= .symtab's sh_info (" +
                   Twine(firstGlobal) + ")" + 
                   CHECK(eSyms[i].getName(this->stringTable), this) + "-" + 
-                  CHECK(eSyms[firstGlobal].getName(this->stringTable), this));*/
+                  CHECK(eSyms[firstGlobal].getName(this->stringTable), this));
 
     InputSectionBase *sec = this->sections[secIdx];
     uint8_t type = eSym.getType();
