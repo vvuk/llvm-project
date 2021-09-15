@@ -1639,7 +1639,11 @@ static void encodeDynamicReloc(SymbolTableBaseSection *symTab,
   if (config->isRela)
     p->r_addend = rel.computeAddend();
   p->r_offset = rel.getOffset();
-  p->setSymbolAndType(rel.getSymIndex(symTab), rel.type, config->isMips64EL);
+  uint32_t symIndex = rel.getSymIndex(symTab);
+  if (config->osabi == ELFOSABI_IRIX && symIndex == 0 && rel.sym) {
+    symIndex = mainPart->dynSymTab->getSectionSymbolIndex(rel.sym->getOutputSection());
+  }
+  p->setSymbolAndType(symIndex, rel.type, config->isMips64EL);
 }
 
 template <class ELFT>
@@ -2109,7 +2113,10 @@ void SymbolTableBaseSection::sortSymTabSymbols() {
 
 void SymbolTableBaseSection::addSymbol(Symbol *b) {
   // Adding a local symbol to a .dynsym is a bug.
-  assert(this->type != SHT_DYNSYM || !b->isLocal());
+  // except IRIX, which needs SECTION LOCALS in dynsym for
+  // relocation entries
+  assert(this->type != SHT_DYNSYM || !b->isLocal() ||
+    (config->osabi == ELFOSABI_IRIX && b->isSection()));
 
   bool hashIt = b->isLocal();
   symbols.push_back({b, strTabSec.addString(b->getName(), hashIt)});
@@ -2137,6 +2144,21 @@ size_t SymbolTableBaseSection::getSymbolIndex(Symbol *sym) {
   if (sym->type == STT_SECTION)
     return sectionIndexMap.lookup(sym->getOutputSection());
   return symbolIndexMap.lookup(sym);
+}
+
+size_t SymbolTableBaseSection::getSectionSymbolIndex(OutputSection *outputSec) {
+  // Initializes section lookup table lazily.  This is used on IRIX, where
+  // we have to emit section-relative relocations because it treats STN_UNDEF
+  // as a relocation against 0, i.e. a no-op.
+  llvm::call_once(onceFlag, [&] {
+    size_t i = 0;
+    for (const SymbolTableEntry &e : symbols) {
+      if (e.sym->type == STT_SECTION)
+        sectionIndexMap[e.sym->getOutputSection()] = ++i;
+    }
+  });
+
+  return sectionIndexMap.lookup(outputSec);
 }
 
 template <class ELFT>

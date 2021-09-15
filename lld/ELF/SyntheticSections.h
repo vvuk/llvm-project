@@ -585,6 +585,7 @@ public:
   void addSymbol(Symbol *sym);
   unsigned getNumSymbols() const { return symbols.size() + 1; }
   size_t getSymbolIndex(Symbol *sym);
+  size_t getSectionSymbolIndex(OutputSection *outputSec);
   ArrayRef<SymbolTableEntry> getSymbols() const { return symbols; }
 
 protected:

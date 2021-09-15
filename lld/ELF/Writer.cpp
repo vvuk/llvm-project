@@ -582,8 +582,8 @@ template <class ELFT> void elf::createSyntheticSections() {
 template <class ELFT> void Writer<ELFT>::run() {
   copyLocalSymbols();
 
-  if (config->copyRelocs)
-    addSectionSymbols();
+  // Maybe adds section symbols if needed (copyRelocs) or for IRIX
+  addSectionSymbols();
 
   // Now that we have a complete set of output sections. This function
   // completes section contents. For example, we need to add strings
@@ -792,6 +792,14 @@ template <class ELFT> void Writer<ELFT>::copyLocalSymbols() {
 // referring to a section (that happens if the section is a synthetic one), we
 // don't create a section symbol for that section.
 template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
+  const bool isIRIX = config->osabi == ELFOSABI_IRIX;
+  // we don't need section symbols if no copyRelocs and not irix
+  if (!config->copyRelocs && !isIRIX)
+    return;
+
+  const bool addToDynSymTab = isIRIX;
+  const bool addToSymTab = config->copyRelocs;
+
   for (BaseCommand *base : script->sectionCommands) {
     auto *sec = dyn_cast<OutputSection>(base);
     if (!sec)
@@ -818,10 +826,17 @@ template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
     // Set the symbol to be relative to the output section so that its st_value
     // equals the output section address. Note, there may be a gap between the
     // start of the output section and isec.
+
+    // For IRIX, we need to add these into dynsym and they need to have an actual
+    // name to work around a rld bug so that rld can disambiguate.  Yes, LOCAL
+    // symbols go in dynsym on IRIX.
     auto *sym =
-        make<Defined>(isec->file, "", STB_LOCAL, /*stOther=*/0, STT_SECTION,
+        make<Defined>(isec->file, isIRIX ? isec->name : "", STB_LOCAL, /*stOther=*/0, STT_SECTION,
                       /*value=*/0, /*size=*/0, isec->getOutputSection());
-    in.symTab->addSymbol(sym);
+    if (addToDynSymTab)
+      mainPart->dynSymTab->addSymbol(sym);
+    if (addToSymTab)
+      in.symTab->addSymbol(sym);
   }
 }
 
