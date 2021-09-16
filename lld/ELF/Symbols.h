@@ -155,6 +155,10 @@ public:
   bool isShared() const { return symbolKind == SharedKind; }
   bool isPlaceholder() const { return symbolKind == PlaceholderKind; }
 
+  // On MIPS, return if this symbol is flagged as optional
+  bool isMipsOptional() const { return config->emachine == llvm::ELF::EM_MIPS &&
+    (stOther & llvm::ELF::STO_MIPS_OPTIONAL); }
+
   bool isLocal() const { return binding == llvm::ELF::STB_LOCAL; }
 
   bool isLazy() const {
