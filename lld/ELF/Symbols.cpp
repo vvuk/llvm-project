@@ -361,6 +361,13 @@ bool elf::computeIsPreemptible(const Symbol &sym) {
   if (!sym.isDefined())
     return true;
 
+  // IRIX rld wants some special entries (__Argc, __Argv, etc.) in the
+  // dynamic symbol table for executables _and_ wants GOT entries for
+  // them (crashes if it can't find a GOT entry).  So if we explicitly
+  // flagged something as inDynamicList, report it as always preemptible.
+  if (config->osabi == ELFOSABI_IRIX && sym.inDynamicList)
+    return true;
+
   if (!config->shared)
     return false;
 

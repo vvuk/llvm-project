@@ -174,19 +174,16 @@ void IRIX::addExtraOpts(llvm::opt::ArgStringList &Args) const {
 #endif
 
 #ifndef BINUTILS_LD_BUILD
-  // Without this, lld will fail to link, since it's looking for
-  // code defined inside rld
-  Args.push_back("--allow-shlib-undefined");
-
   // TODO -- need to guard this with notstdlib (again need to use irix::Linker::ConstructJob)
   Args.push_back("-lc");
+
+  Args.push_back("--as-needed");
   Args.push_back("-lm");
+  Args.push_back("-lgen"); // needed for a bunch of std C stuff, if it gets used
+  Args.push_back("--no-as-needed");
 
-  // needed for a bunch of std C stuff
-  Args.push_back("-lgen");
-
-  // Hack for shared libraries, otherwise they take the wrong base address
-  // and rld isn't happy
+  // Hack for shared libraries, otherwise they get generated with a base of 0,
+  // and rld doesn't like that.
   // This doesn't work on Binutils LD
   // TODO -- only do this if --shared, but we don't have access to args.
   // fix when we use irix::Linker::ConstructJob below.
@@ -194,6 +191,11 @@ void IRIX::addExtraOpts(llvm::opt::ArgStringList &Args) const {
 
   Args.push_back("-init=__gcc_init");
   Args.push_back("-fini=__gcc_fini");
+
+  // These are used by rld
+  Args.push_back("--export-dynamic-symbol=__Argc");
+  Args.push_back("--export-dynamic-symbol=__Argv");
+  Args.push_back("--export-dynamic-symbol=__rld_obj_head");
 #endif
 }
 
