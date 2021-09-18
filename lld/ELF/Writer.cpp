@@ -264,10 +264,6 @@ void elf::addReservedSymbols() {
     // https://sourceware.org/ml/binutils/2004-12/msg00094.html
     if (symtab->find("__gnu_local_gp"))
       ElfSym::mipsLocalGp = addAbsolute("__gnu_local_gp");
-
-    // IRIX libc references _rld_new_interface which the dynamic linker fills in
-    if (config->osabi == ELFOSABI_IRIX && !config->isStatic)
-      addAbsolute("_rld_new_interface");
   } else if (config->emachine == EM_PPC) {
     // glibc *crt1.o has a undefined reference to _SDA_BASE_. Since we don't
     // support Small Data Area, define it arbitrarily as 0.
@@ -2022,7 +2018,10 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
           });
 
     for (Symbol *sym : symtab->symbols())
-      if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional())
+      if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional()) {
+        // magic symbol from IRIX libc that rld fills in, but we don't want to define it
+        if (config->osabi == ELFOSABI_IRIX && sym->getName() == "_rld_new_interface")
+          continue;
         if (auto *f = dyn_cast_or_null<SharedFile>(sym->file))
           if (f->allNeededIsKnown) {
             auto diagnose = config->unresolvedSymbolsInShlib ==
@@ -2032,6 +2031,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
             diagnose(toString(f) + ": undefined reference to " +
                      toString(*sym) + " [--no-allow-shlib-undefined]");
           }
+      }
   }
 
   {

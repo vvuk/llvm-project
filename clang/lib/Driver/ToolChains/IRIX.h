@@ -14,11 +14,12 @@
 
 namespace clang {
 namespace driver {
+
 namespace toolchains {
 
-class LLVM_LIBRARY_VISIBILITY IRIX : public Generic_ELF {
+class LLVM_LIBRARY_VISIBILITY IRIXGCC : public Generic_ELF {
 public:
-  IRIX(const Driver &D, const llvm::Triple &Triple,
+  IRIXGCC(const Driver &D, const llvm::Triple &Triple,
        const llvm::opt::ArgList &Args);
 
   bool HasNativeLLVMSupport() const override;
@@ -42,11 +43,72 @@ protected:
   Tool *buildLinker() const override;
 
   StringRef mABI;
+  bool mIsLLD;
+  bool mUseGNULinker;
+  bool mNoGCC;
+  ToolChain::RuntimeLibType mRuntimeLibType;
+};
+
+class LLVM_LIBRARY_VISIBILITY IRIX : public ToolChain {
+public:
+  IRIX(const Driver &D, const llvm::Triple &Triple,
+       const llvm::opt::ArgList &Args);
+
+  bool HasNativeLLVMSupport() const override { return true; }
+  bool IsIntegratedAssemblerDefault() const override { return true; }
+  bool IsMathErrnoDefault() const override { return false; }
+  RuntimeLibType GetDefaultRuntimeLibType() const override {
+    return ToolChain::RLT_CompilerRT;
+  }
+  UnwindLibType GetDefaultUnwindLibType() const override {
+    return ToolChain::UNW_CompilerRT;
+  }
+  CXXStdlibType GetDefaultCXXStdlibType() const override {
+    return ToolChain::CST_Libcxx;
+  }
+  bool IsUnwindTablesDefault(const llvm::opt::ArgList &Args) const override {
+    return false;
+  }
+  bool isPICDefault() const override { return true; }
+  bool isPIEDefault() const override { return false; }
+  bool isPICDefaultForced() const override { return false; }
+  llvm::DebuggerKind getDefaultDebuggerTuning() const override {
+    return llvm::DebuggerKind::GDB; // where did DBX go?
+  }
+
+  SanitizerMask getSupportedSanitizers() const override { return SanitizerMask(); }
+  SanitizerMask getDefaultSanitizers() const override { return SanitizerMask(); }
+
+  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                             llvm::opt::ArgStringList &CC1Args,
+                             Action::OffloadKind DeviceOffloadKind) const override;
+  void
+  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                            llvm::opt::ArgStringList &CC1Args) const override;
+  void
+  AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                               llvm::opt::ArgStringList &CC1Args) const override;
+  void AddCXXStdlibLibArgs(const llvm::opt::ArgList &DriverArgs,
+                           llvm::opt::ArgStringList &CmdArgs) const override;
+
+  const char *getDefaultLinker() const override {
+    return "ld.lld";
+  }
+
+  std::string getDynamicLinker(const llvm::opt::ArgList &Args) const;
+
+  StringRef GetABI() const { return mABI; }
+  const std::string& GetOSLibDir() const { return mOSLibDir; }
+
+protected:
+  Tool *buildLinker() const override;
+
+  std::string mOSLibDir;
+  StringRef mABI;
 };
 
 } // end namespace toolchains
 
-#if false
 namespace tools {
 namespace irix {
 
@@ -62,9 +124,9 @@ public:
                     const llvm::opt::ArgList &TCArgs,
                     const char *LinkingOutput) const override;
 };
+
 } // end namespace irix
 } // end namespace tools
-#endif
 
 } // end namespace driver
 } // end namespace clang

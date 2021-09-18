@@ -9,17 +9,18 @@ if [ -f clang/CMakeLists.txt ] ; then
     exit 1
 fi
 
-NDIR=$1
+NDIR=../build/full/bin
 
-if [ x"$NDIR" = "x" ] ; then
-    if [ -f ../build-full/bin/llvm-tblgen ] ; then
-        echo "Assuming ../build-full/bin"
-        NDIR=../build-full/bin
-    else
-        echo "Please specify path to built llvm native cross-compiler, e.g."
-        echo "   $0 ../build-full/bin"
-        exit 1
-    fi
+if [ x"$1" != "x" ] ; then
+    NDIR=$1
+    shift
+fi
+
+if [ ! -f ${NDIR}/llvm-tblgen ] ; then
+    echo "Couldn't find ${NDIR}/bin/llvm-tblgen"
+    echo "Please specify path to built llvm native cross-compiler binary directory, e.g."
+    echo "   $0 ../build-full/bin"
+    exit 1
 fi
 
 if [ ! -f /opt/irix/root/lib32/libc.so.1 ] ; then
@@ -32,10 +33,12 @@ NDIR=$(readlink -f ${NDIR})
 echo ${NDIR}
 
 # One day soon..
-#CROSS_CC=${NDIR}/clang
-#CROSS_CXX=${NDIR}/clang++
-CROSS_CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
-CROSS_CXX=/opt/irix/sgug/bin/mips-sgi-irix6.5-g++
+CROSS_CC=${NDIR}/clang
+CROSS_CXX=${NDIR}/clang++
+#CROSS_CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
+#CROSS_CXX=/opt/irix/sgug/bin/mips-sgi-irix6.5-g++
+#XLINK="-lc -lgen"
+XLINK="-lpthread"
 
 if [ ! -f ${CROSS_CC} ] ; then
     echo "Can't find cross compiler ${CROSS_CC}, is it installed?"
@@ -73,8 +76,9 @@ cmake -G Ninja \
     -DLLVM_INCLUDE_GO_TESTS=Off \
     -DCMAKE_C_FLAGS="-I=/usr/xg/include" \
     -DCMAKE_CXX_FLAGS="-I=/usr/xg/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
-    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
-    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lc -lgen" \
+    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
+    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
+    $* \
     ${RELDIR}/llvm
 

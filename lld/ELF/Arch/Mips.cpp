@@ -70,6 +70,13 @@ template <class ELFT> MIPS<ELFT>::MIPS() {
     tlsModuleIndexRel = R_MIPS_TLS_DTPMOD32;
     tlsOffsetRel = R_MIPS_TLS_DTPREL32;
   }
+
+  // IRIX rld hates shared objects with an image base of 0.  Use
+  // the defaults that mipspro uses.
+  if (config->osabi == ELFOSABI_IRIX) {
+    defaultImageBase = 0x5ff00000;
+    defaultPicImageBase = 0x10000000;
+  }
 }
 
 template <class ELFT> uint32_t MIPS<ELFT>::calcEFlags() const {

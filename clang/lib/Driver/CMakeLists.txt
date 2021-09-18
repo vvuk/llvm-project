@@ -56,6 +56,7 @@ add_clang_library(clangDriver
   ToolChains/Hurd.cpp
   ToolChains/Linux.cpp
   ToolChains/IRIX.cpp
+  ToolChains/IRIXGCC.cpp
   ToolChains/MipsLinux.cpp
   ToolChains/MinGW.cpp
   ToolChains/Minix.cpp

@@ -168,6 +168,7 @@ protected:
   // installs this is set to 65536, so the first 15 pages cannot be used.
   // Given that, the smallest value that can be used in here is 0x10000.
   uint64_t defaultImageBase = 0x10000;
+  uint64_t defaultPicImageBase = 0;
 };
 
 TargetInfo *getAArch64TargetInfo();

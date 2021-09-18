@@ -962,6 +962,9 @@ static bool maybeReportUndefined(Symbol &sym, InputSectionBase &sec,
     return false;
 
   bool canBeExternal = !sym.isLocal() && sym.visibility == STV_DEFAULT;
+  // magic symbol from IRIX libc that rld fills in, but we don't want to make it absolute
+  if (config->osabi == ELFOSABI_IRIX && canBeExternal && sym.getName() == "_rld_new_interface")
+    return false;
   if (config->unresolvedSymbols == UnresolvedPolicy::Ignore && canBeExternal)
     return false;
 
