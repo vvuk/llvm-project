@@ -190,5 +190,5 @@ uint64_t TargetInfo::getImageBase() const {
   // Use -image-base if set. Fall back to the target default if not.
   if (config->imageBase)
     return *config->imageBase;
-  return config->isPic ? 0 : defaultImageBase;
+  return config->isPic ? defaultPicImageBase : defaultImageBase;
 }

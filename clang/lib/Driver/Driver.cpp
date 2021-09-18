@@ -5283,7 +5283,10 @@ const ToolChain &Driver::getToolChain(const ArgList &Args,
       TC = std::make_unique<toolchains::NetBSD>(*this, Target, Args);
       break;
     case llvm::Triple::IRIX:
-      TC = std::make_unique<toolchains::IRIX>(*this, Target, Args);
+      if (getenv("IRIX_USE_GCC"))
+        TC = std::make_unique<toolchains::IRIXGCC>(*this, Target, Args);
+      else
+        TC = std::make_unique<toolchains::IRIX>(*this, Target, Args);
       break;
     case llvm::Triple::FreeBSD:
       TC = std::make_unique<toolchains::FreeBSD>(*this, Target, Args);

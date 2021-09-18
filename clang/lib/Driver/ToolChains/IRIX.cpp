@@ -10,6 +10,7 @@
 #include "CommonArgs.h"
 #include "Arch/Mips.h"
 #include "clang/Config/config.h"
+#include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Support/Path.h"
@@ -23,44 +24,44 @@ using namespace llvm::opt;
 
 using tools::addPathIfExists;
 
-static StringRef getOSLibDir(StringRef abi) {
-  if (abi == "n32")
-    return "lib32";
-  if (abi == "n64")
-    return "lib64";
-  if (abi == "o32")
-    return "lib";
-  llvm_unreachable("Invalid abi for getOSLibDir");
-}
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
-    : Generic_ELF(D, Triple, Args) {
-  GCCInstallation.init(Triple, Args);
-  Multilibs = GCCInstallation.getMultilibs();
-  SelectedMultilib = GCCInstallation.getMultilib();
+    : ToolChain(D, Triple, Args) {
+  getProgramPaths().push_back(getDriver().getInstalledDir());
+  if (getDriver().getInstalledDir() != D.Dir)
+    getProgramPaths().push_back(D.Dir);
+
+  if (!D.SysRoot.empty()) {
+    SmallString<128> P(D.SysRoot);
+    llvm::sys::path::append(P, "lib");
+    getFilePaths().push_back(std::string(P.str()));
+  }
+
+  StringRef cpu;
+  StringRef abi;
+  tools::mips::getMipsCPUAndABI(Args, Triple, cpu, abi);
+
+  mABI = abi;
+
   std::string SysRoot = computeSysRoot();
-  ToolChain::path_list &PPaths = getProgramPaths();
 
-  Generic_GCC::PushPPaths(PPaths);
+  getProgramPaths().push_back(getDriver().getInstalledDir());
+  if (getDriver().getInstalledDir() != getDriver().Dir)
+    getProgramPaths().push_back(getDriver().Dir);
 
-  // The selection of paths to try here is designed to match the patterns which
-  // the GCC driver itself uses, as this is part of the GCC-compatible driver.
-  // This was determined by running GCC in a fake filesystem, creating all
-  // possible permutations of these directories, and seeing which ones it added
-  // to the link paths.
-  path_list &Paths = getFilePaths();
+  if (abi == "n32")
+    mOSLibDir = "lib32";
+  else if (abi == "n64")
+    mOSLibDir = "lib64";
+  else if (abi == "o32")
+    mOSLibDir = "lib";
+  else
+    llvm_unreachable("Invalid ABI");
 
-  StringRef CPUName;
-  StringRef ABIName;
-  tools::mips::getMipsCPUAndABI(Args, Triple, CPUName, ABIName);
-
-  mABI = ABIName;
-
-  const std::string OSLibDir = std::string(getOSLibDir(ABIName));
-  const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
-  Paths.push_back(SysRoot + "/usr/" + OSLibDir + "/" + CPUName.data());
-  Paths.push_back(SysRoot + "/usr/" + OSLibDir);
-  Paths.push_back(SysRoot + "/" + OSLibDir);
+  //const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
+  getFilePaths().push_back(SysRoot + "/usr/" + mOSLibDir + "/" + cpu.data());
+  getFilePaths().push_back(SysRoot + "/usr/" + mOSLibDir);
+  getFilePaths().push_back(SysRoot + "/" + mOSLibDir);
 
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
@@ -68,20 +69,12 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // FIXME: It's not clear whether we should use the driver's installed
   // directory ('Dir' below) or the ResourceDir.
   if (StringRef(D.Dir).startswith(SysRoot)) {
-    addPathIfExists(D, D.Dir + "/../" + OSLibDir, Paths);
+    addPathIfExists(D, D.Dir + "/../" + mOSLibDir, getFilePaths());
   }
-
-  Generic_GCC::AddMultiarchPaths(D, SysRoot, OSLibDir, Paths);
-  Generic_GCC::AddMultilibPaths(D, SysRoot, OSLibDir, MultiarchTriple, Paths);
 }
 
-bool IRIX::HasNativeLLVMSupport() const { return true; }
-
-Tool *IRIX::buildLinker() const { return new tools::gnutools::Linker(*this); }
-//Tool *IRIX::buildLinker() const { return new tools::irix::Linker(*this); }
-
-Tool *IRIX::buildAssembler() const {
-  return new tools::gnutools::Assembler(*this);
+Tool *IRIX::buildLinker() const {
+  return new tools::irix::Linker(*this);
 }
 
 std::string IRIX::getDynamicLinker(const llvm::opt::ArgList &Args) const {
@@ -92,54 +85,6 @@ std::string IRIX::getDynamicLinker(const llvm::opt::ArgList &Args) const {
   if (mABI == "o32")
     return "/usr/lib/libc.so.1";
   llvm_unreachable("Bad ABI in getDynamicLinker");
-}
-
-void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
-                                     ArgStringList &CC1Args) const {
-  const Driver &D = getDriver();
-  std::string SysRoot = computeSysRoot();
-
-  addSystemInclude(DriverArgs, CC1Args, GCCInstallation.getInstallPath() + "/include-fixed");
-
-  AddMultilibIncludeArgs(DriverArgs, CC1Args);
-
-  if (DriverArgs.hasArg(clang::driver::options::OPT_nostdinc))
-    return;
-
-  if (!DriverArgs.hasArg(options::OPT_nostdlibinc)) {
-    //addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
-    addSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include");
-  }
-
-  if (!DriverArgs.hasArg(options::OPT_nobuiltininc)) {
-    SmallString<128> P(D.ResourceDir);
-    llvm::sys::path::append(P, "include");
-    addSystemInclude(DriverArgs, CC1Args, P);
-  }
-
-  if (DriverArgs.hasArg(options::OPT_nostdlibinc))
-    return;
-
-  // Check for configure-time C include directories.
-  StringRef CIncludeDirs(C_INCLUDE_DIRS);
-  if (CIncludeDirs != "") {
-    SmallVector<StringRef, 5> Dirs;
-    CIncludeDirs.split(Dirs, ":");
-    for (StringRef Dir : Dirs) {
-      StringRef Prefix =
-          llvm::sys::path::is_absolute(Dir) ? "" : StringRef(SysRoot);
-      addExternCSystemInclude(DriverArgs, CC1Args, Prefix + Dir);
-    }
-    return;
-  }
-
-  // Lacking those, try to detect the correct set of system includes for the
-  // target triple.
-
-  addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include");
-
-  //addExternCSystemInclude(DriverArgs, CC1Args, SysRoot + "/usr/include-fixed");
-  
 }
 
 void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
@@ -168,38 +113,84 @@ void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
     CC1Args.push_back("-femulated-tls");
 }
 
-void IRIX::addExtraOpts(llvm::opt::ArgStringList &Args) const {
-#ifdef ENABLE_LINKER_BUILD_ID
-  Args.push_back("--build-id");
-#endif
+void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+                                     ArgStringList &CC1Args) const {
+  const Driver &D = getDriver();
 
-#ifndef BINUTILS_LD_BUILD
-  // TODO -- need to guard this with notstdlib (again need to use irix::Linker::ConstructJob)
-  Args.push_back("-lc");
+  if (DriverArgs.hasArg(clang::driver::options::OPT_nostdinc))
+    return;
 
-  Args.push_back("--as-needed");
-  Args.push_back("-lm");
-  Args.push_back("-lgen"); // needed for a bunch of std C stuff, if it gets used
-  Args.push_back("--no-as-needed");
+  std::string ExtraStuffPath = D.SysRoot + "/usr/lib/clang/" + getTriple().str();
+  //AddMultilibIncludeArgs(DriverArgs, CC1Args);
 
-  // Hack for shared libraries, otherwise they get generated with a base of 0,
-  // and rld doesn't like that.
-  // This doesn't work on Binutils LD
-  // TODO -- only do this if --shared, but we don't have access to args.
-  // fix when we use irix::Linker::ConstructJob below.
-  Args.push_back("-image-base=0x10000");
+  if (!DriverArgs.hasArg(options::OPT_nobuiltininc)) {
+    SmallString<128> P(D.ResourceDir);
+    llvm::sys::path::append(P, "include");
+    addSystemInclude(DriverArgs, CC1Args, P);
+  }
 
-  Args.push_back("-init=__gcc_init");
-  Args.push_back("-fini=__gcc_fini");
+  if (DriverArgs.hasArg(options::OPT_nostdlibinc))
+    return;
 
-  // These are used by rld
-  Args.push_back("--export-dynamic-symbol=__Argc");
-  Args.push_back("--export-dynamic-symbol=__Argv");
-  Args.push_back("--export-dynamic-symbol=__rld_obj_head");
-#endif
+  // this is the fixincludes output -- actual replacements for the system headers
+  addSystemInclude(DriverArgs, CC1Args, ExtraStuffPath + "/include-fixed");
+  // these are headers that interpose themselves before/after the system ones
+  addSystemInclude(DriverArgs, CC1Args, ExtraStuffPath + "/include");
+  // these are the actual system headers
+  addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/include");
+
+  // Check for configure-time C include directories.
+  StringRef CIncludeDirs(C_INCLUDE_DIRS);
+  if (CIncludeDirs != "") {
+    SmallVector<StringRef, 5> Dirs;
+    CIncludeDirs.split(Dirs, ":");
+    for (StringRef Dir : Dirs) {
+      StringRef Prefix =
+          llvm::sys::path::is_absolute(Dir) ? "" : StringRef(D.SysRoot);
+      addExternCSystemInclude(DriverArgs, CC1Args, Prefix + Dir);
+    }
+    return;
+  }
+
+  // TODO IRIX do we need ExternCSystemInclude for /usr/include?
+  if (!D.SysRoot.empty()) {
+    SmallString<128> P(D.SysRoot);
+    llvm::sys::path::append(P, "usr", "include");
+    addExternCSystemInclude(DriverArgs, CC1Args, P.str());
+  }
 }
 
-#if false
+void IRIX::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
+                                        ArgStringList &CC1Args) const {
+  if (DriverArgs.hasArg(options::OPT_nostdlibinc) ||
+      DriverArgs.hasArg(options::OPT_nostdincxx))
+    return;
+
+  switch (GetCXXStdlibType(DriverArgs)) {
+  case ToolChain::CST_Libcxx: {
+    SmallString<128> P(getDriver().Dir);
+    llvm::sys::path::append(P, "..", "include", "c++", "v1");
+    addSystemInclude(DriverArgs, CC1Args, P.str());
+    break;
+  }
+
+  default:
+    llvm_unreachable("invalid stdlib name");
+  }
+}
+
+void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
+                               ArgStringList &CmdArgs) const {
+  switch (GetCXXStdlibType(DriverArgs)) {
+  case ToolChain::CST_Libcxx:
+    CmdArgs.push_back("-lc++");
+    break;
+
+  case ToolChain::CST_Libstdcxx:
+    llvm_unreachable("invalid stdlib name");
+  }
+}
+
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                    const InputInfo &Output,
                                    const InputInfoList &Inputs,
@@ -208,7 +199,6 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const toolchains::IRIX &ToolChain =
       static_cast<const toolchains::IRIX &>(getToolChain());
   const Driver &D = ToolChain.getDriver();
-  const llvm::Triple::ArchType Arch = ToolChain.getArch();
   const bool IsPIE =
       !Args.hasArg(options::OPT_shared) &&
       (Args.hasArg(options::OPT_pie) || ToolChain.isPIEDefault());
@@ -229,6 +219,11 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (IsPIE)
     CmdArgs.push_back("-pie");
 
+  if (ToolChain.isNoExecStackDefault()) {
+    CmdArgs.push_back("-z");
+    CmdArgs.push_back("noexecstack");
+  }
+
   CmdArgs.push_back("--eh-frame-hdr");
 
   if (Args.hasArg(options::OPT_static)) {
@@ -240,109 +235,45 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       CmdArgs.push_back("-shared");
     } else {
       CmdArgs.push_back("-dynamic-linker");
-      CmdArgs.push_back(Args.MakeArgString(Twine(D.DyldPrefix) +
-                                           ToolChain.getDynamicLinker(Args)));
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.getDynamicLinker(Args)));
     }
-    const llvm::Triple &T = ToolChain.getTriple();
-    if (T.getOSMajorVersion() >= 9) {
-      if (Arch == llvm::Triple::arm || Arch == llvm::Triple::sparc || T.isX86())
-        CmdArgs.push_back("--hash-style=both");
-    }
-    CmdArgs.push_back("--enable-new-dtags");
   }
 
-  // Explicitly set the linker emulation for platforms that might not
-  // be the default emulation for the linker.
-  switch (Arch) {
-  case llvm::Triple::x86:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf_i386_fbsd");
-    break;
-  case llvm::Triple::ppc:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf32ppc_fbsd");
-    break;
-  case llvm::Triple::ppcle:
-    CmdArgs.push_back("-m");
-    // Use generic -- only usage is for freestanding.
-    CmdArgs.push_back("elf32lppc");
-    break;
-  case llvm::Triple::mips:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf32btsmip_fbsd");
-    break;
-  case llvm::Triple::mipsel:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf32ltsmip_fbsd");
-    break;
-  case llvm::Triple::mips64:
-    CmdArgs.push_back("-m");
-    if (tools::mips::hasMipsAbiArg(Args, "n32"))
-      CmdArgs.push_back("elf32btsmipn32_fbsd");
-    else
-      CmdArgs.push_back("elf64btsmip_fbsd");
-    break;
-  case llvm::Triple::mips64el:
-    CmdArgs.push_back("-m");
-    if (tools::mips::hasMipsAbiArg(Args, "n32"))
-      CmdArgs.push_back("elf32ltsmipn32_fbsd");
-    else
-      CmdArgs.push_back("elf64ltsmip_fbsd");
-    break;
-  case llvm::Triple::riscv32:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf32lriscv");
-    break;
-  case llvm::Triple::riscv64:
-    CmdArgs.push_back("-m");
-    CmdArgs.push_back("elf64lriscv");
-    break;
-  default:
-    break;
-  }
+  CmdArgs.push_back("-m");
+  if (ToolChain.GetABI() == "n32")
+    CmdArgs.push_back("elf32btsmipn32_irix");
+  else if (ToolChain.GetABI() == "n64")
+    CmdArgs.push_back("elf64btsmip_irix");
+  else
+    llvm_unreachable("invalid ABI");
 
   if (Arg *A = Args.getLastArg(options::OPT_G)) {
-    if (ToolChain.getTriple().isMIPS()) {
-      StringRef v = A->getValue();
-      CmdArgs.push_back(Args.MakeArgString("-G" + v));
-      A->claim();
-    }
+    StringRef v = A->getValue();
+    CmdArgs.push_back(Args.MakeArgString("-G" + v));
+    A->claim();
   }
 
-  if (Output.isFilename()) {
-    CmdArgs.push_back("-o");
-    CmdArgs.push_back(Output.getFilename());
-  } else {
+  if (!Output.isFilename())
     assert(Output.isNothing() && "Invalid output.");
-  }
+
+  CmdArgs.push_back("-o");
+  CmdArgs.push_back(Output.getFilename());
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
-    const char *crt1 = nullptr;
-    if (!Args.hasArg(options::OPT_shared)) {
-      if (Args.hasArg(options::OPT_pg))
-        crt1 = "gcrt1.o";
-      else if (IsPIE)
-        crt1 = "Scrt1.o";
-      else
-        crt1 = "crt1.o";
-    }
-    if (crt1)
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crt1)));
+    // from IRIX
+    if (!Args.hasArg(options::OPT_shared))
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt1.o")));
 
-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
-
-    const char *crtbegin = nullptr;
-    if (Args.hasArg(options::OPT_static))
-      crtbegin = "crtbeginT.o";
-    else if (Args.hasArg(options::OPT_shared) || IsPIE)
-      crtbegin = "crtbeginS.o";
-    else
-      crtbegin = "crtbegin.o";
-
-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin)));
+    // from compiler-rt or gcc
+    std::string crtbegin = ToolChain.getCompilerRT(Args, "crtbegin", ToolChain::FT_Object);
+    if (ToolChain.getVFS().exists(crtbegin))
+      CmdArgs.push_back(Args.MakeArgString(crtbegin));
+    else if (!getenv("CLANG_NO_GCC_CRT"))
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("gcc-irix-crti.o")));
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
+  Args.AddAllArgs(CmdArgs, options::OPT_u);
   ToolChain.AddFilePathLibArgs(Args, CmdArgs);
   Args.AddAllArgs(CmdArgs, options::OPT_T_Group);
   Args.AddAllArgs(CmdArgs, options::OPT_e);
@@ -357,78 +288,62 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                   D.getLTOMode() == LTOK_Thin);
   }
 
+  // these will both be false for irix, but do it here for some future world
   bool NeedsSanitizerDeps = addSanitizerRuntimes(ToolChain, Args, CmdArgs);
   bool NeedsXRayDeps = addXRayRuntime(ToolChain, Args, CmdArgs);
+
   AddLinkerInputs(ToolChain, Inputs, Args, CmdArgs, JA);
 
-  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
-    // Use the static OpenMP runtime with -static-openmp
-    bool StaticOpenMP = Args.hasArg(options::OPT_static_openmp) &&
-                        !Args.hasArg(options::OPT_static);
-    addOpenMPRuntime(CmdArgs, ToolChain, Args, StaticOpenMP);
+  bool didBuiltins = false;
 
-    if (D.CCCIsCXX()) {
-      if (ToolChain.ShouldLinkCXXStdlib(Args))
-        ToolChain.AddCXXStdlibLibArgs(Args, CmdArgs);
-      if (Args.hasArg(options::OPT_pg))
-        CmdArgs.push_back("-lm_p");
-      else
-        CmdArgs.push_back("-lm");
+  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nodefaultlibs)) {
+    if (D.CCCIsCXX() && ToolChain.ShouldLinkCXXStdlib(Args)) {
+      bool OnlyLibstdcxxStatic = Args.hasArg(options::OPT_static_libstdcxx) &&
+                                !Args.hasArg(options::OPT_static);
+      CmdArgs.push_back("--push-state");
+      CmdArgs.push_back("--as-needed");
+      if (OnlyLibstdcxxStatic)
+        CmdArgs.push_back("-Bstatic");
+      ToolChain.AddCXXStdlibLibArgs(Args, CmdArgs);
+      if (OnlyLibstdcxxStatic)
+        CmdArgs.push_back("-Bdynamic");
+      CmdArgs.push_back("-lm");
+      CmdArgs.push_back("--pop-state");
+
+      AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
+      didBuiltins = true;
     }
+
     if (NeedsSanitizerDeps)
       linkSanitizerRuntimeDeps(ToolChain, CmdArgs);
     if (NeedsXRayDeps)
       linkXRayRuntimeDeps(ToolChain, CmdArgs);
-    // FIXME: For some reason GCC passes -lgcc and -lgcc_s before adding
-    // the default system libraries. Just mimic this for now.
-    if (Args.hasArg(options::OPT_pg))
-      CmdArgs.push_back("-lgcc_p");
-    else
-      CmdArgs.push_back("-lgcc");
-    if (Args.hasArg(options::OPT_static)) {
-      CmdArgs.push_back("-lgcc_eh");
-    } else if (Args.hasArg(options::OPT_pg)) {
-      CmdArgs.push_back("-lgcc_eh_p");
-    } else {
-      CmdArgs.push_back("--as-needed");
-      CmdArgs.push_back("-lgcc_s");
-      CmdArgs.push_back("--no-as-needed");
-    }
 
-    if (Args.hasArg(options::OPT_pthread)) {
-      if (Args.hasArg(options::OPT_pg))
-        CmdArgs.push_back("-lpthread_p");
-      else
-        CmdArgs.push_back("-lpthread");
-    }
+    // TODO should we just assume -lpthread, add it as_needed?  Without this
+    // porting software is just going to be more annoying.
+    if (Args.hasArg(options::OPT_pthread))
+      CmdArgs.push_back("-lpthread");
 
-    if (Args.hasArg(options::OPT_pg)) {
-      if (Args.hasArg(options::OPT_shared))
-        CmdArgs.push_back("-lc");
-      else
-        CmdArgs.push_back("-lc_p");
-      CmdArgs.push_back("-lgcc_p");
-    } else {
+    if (Args.hasArg(options::OPT_fsplit_stack))
+      CmdArgs.push_back("--wrap=pthread_create");
+
+    if (!Args.hasArg(options::OPT_nolibc))
       CmdArgs.push_back("-lc");
-      CmdArgs.push_back("-lgcc");
-    }
-
-    if (Args.hasArg(options::OPT_static)) {
-      CmdArgs.push_back("-lgcc_eh");
-    } else if (Args.hasArg(options::OPT_pg)) {
-      CmdArgs.push_back("-lgcc_eh_p");
-    } else {
-      CmdArgs.push_back("--as-needed");
-      CmdArgs.push_back("-lgcc_s");
-      CmdArgs.push_back("--no-as-needed");
-    }
   }
 
+  // can't use AddRunTimeLibs because it pulls in libunwind
+  if (!didBuiltins)
+    CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins"));
+
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
-    if (Args.hasArg(options::OPT_shared) || IsPIE)
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtendS.o")));
-    else
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtend.o")));
+    // from compiler-rt or gcc
+    std::string crtend = ToolChain.getCompilerRT(Args, "crtend", ToolChain::FT_Object);
+    if (ToolChain.getVFS().exists(crtend))
+      CmdArgs.push_back(Args.MakeArgString(crtend));
+    else if (!getenv("CLANG_NO_GCC_CRT"))
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("gcc-irix-crtn.o")));
+
+    // from IRIX
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
   }
 
@@ -439,4 +354,3 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                          ResponseFileSupport::AtFileCurCP(),
                                          Exec, CmdArgs, Inputs, Output));
 }
-#endif

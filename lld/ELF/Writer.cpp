@@ -265,10 +265,6 @@ void elf::addReservedSymbols() {
     // https://sourceware.org/ml/binutils/2004-12/msg00094.html
     if (symtab->find("__gnu_local_gp"))
       ElfSym::mipsLocalGp = addAbsolute("__gnu_local_gp");
-
-    // IRIX libc references _rld_new_interface which the dynamic linker fills in
-    if (config->osabi == ELFOSABI_IRIX && !config->isStatic)
-      addAbsolute("_rld_new_interface");
   } else if (config->emachine == EM_PPC) {
     // glibc *crt1.o has a undefined reference to _SDA_BASE_. Since we don't
     // support Small Data Area, define it arbitrarily as 0.
@@ -2064,9 +2060,14 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
       if (!allNeededIsKnown)
         continue;
       for (Symbol *sym : file->requiredSymbols)
-        if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional())
+        if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional()) {
+          // magic symbol from IRIX libc that rld fills in, but we don't want to define it
+	  // TODO IRIX figure out a better way of handling this; just define it to 0?
+          if (config->osabi == ELFOSABI_IRIX && sym->getName() == "_rld_new_interface")
+            continue;
           diagnose(toString(file) + ": undefined reference to " +
                    toString(*sym) + " [--no-allow-shlib-undefined]");
+	}
     }
   }
 
