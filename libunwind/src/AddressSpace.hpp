@@ -103,6 +103,24 @@ extern char __exidx_end;
 #include <windows.h>
 #include <psapi.h>
 
+#elif defined(_LIBUNWIND_USE_IRIX_RLD)
+
+extern "C" {
+#include <sys/elftypes.h>
+#include <objlist.h>
+#include <rld_interface.h>
+
+int dladdr(const void *addr, Dl_info *info) {
+  return (int) _rld_new_interface(_RLD_DLADDR, addr, info);
+}
+
+#if defined(_ABIN32)
+extern Elf32_Obj_Info *__rld_obj_head;
+#else
+#error Only N32 for now
+#endif
+}
+
 #elif defined(_LIBUNWIND_USE_DL_ITERATE_PHDR) ||                               \
       defined(_LIBUNWIND_USE_DL_UNWIND_FIND_EXIDX)
 
@@ -586,6 +604,16 @@ inline bool LocalAddressSpace::findUnwindSections(pint_t targetAddr,
       (uintptr_t)dl_unwind_find_exidx((_Unwind_Ptr)targetAddr, &length);
   info.arm_section_length = (uintptr_t)length * sizeof(EHABIIndexEntry);
   if (info.arm_section && info.arm_section_length)
+    return true;
+#elif defined(_LIBUNWIND_USE_IRIX_RLD)
+  info.dso_base = 0;
+  info.dwarf_section_length = 0;
+  info.dwarf_section = 0;
+  //_LIBUNWIND_TRACE_UNWINDING("findUnwindSections: section %p length %p", (void *)info.dwarf_section, (void *)info.dwarf_section_length);
+  info.dwarf_index_section = 0;
+  info.dwarf_index_section_length = 0;
+  //_LIBUNWIND_TRACE_UNWINDING("findUnwindSections: index section %p length %p", (void *)info.dwarf_index_section, (void *)info.dwarf_index_section_length);
+  if (info.dwarf_section_length)
     return true;
 #elif defined(_LIBUNWIND_USE_DL_ITERATE_PHDR)
   dl_iterate_cb_data cb_data = {this, &info, targetAddr};
