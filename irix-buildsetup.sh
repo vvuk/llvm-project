@@ -20,6 +20,17 @@ if [ ! -f /opt/irix/root/usr/xg/include/setenv.h ] ; then
     exit 1
 fi 
 
+if [ ! -f /opt/irix/root/usr/lib/clang/mips64-sgi-irix6.5/gcc-irix-crti.o -or ! -f lib/clang/12.0.0/lib/mips64-sgi-irix6.5/gcc-irix-crtn.o ] ; then
+    echo "/opt/irix/root/usr/lib/clang/mips64-sgi-irix6.5 needs to be populated with:"
+    echo "    gcc/mips-sgi-irix6.5/9/irix-crtn.o -> gcc-irix-crtn.o"
+    echo "    gcc/mips-sgi-irix6.5/9/irix-crti.o -> gcc-irix-crti.o"
+    echo "    gcc/mips-sgi-irix6.5/9/include -> include"
+    echo "    gcc/mips-sgi-irix6.5/9/include-fixed -> include-fixed"
+    echo ""
+    echo "    gcc-irix-crtn.o and gcc-irix-crti.o also need to be copied to lib/clang/12.0.0/lib/mips64-sgi-irix6.5 (under this build dir)"
+    exit 1
+fi
+
 FIRSTTIME=1
 if [ -f CMakeCache.txt ] ; then
     FIRSTTIME=
@@ -33,6 +44,7 @@ cmake -G Ninja \
     -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
     -DIRIX_mips64_SYSROOT=/opt/irix/root \
     -DDEFAULT_SYSROOT=/opt/irix/root \
+    -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCLANG_DEFAULT_LINKER=lld \
     -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
     -DGCC_INSTALL_PREFIX=/opt/irix/root/usr/sgug \
