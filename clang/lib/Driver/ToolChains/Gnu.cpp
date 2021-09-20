@@ -409,10 +409,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const bool IsPIE = getPIE(Args, ToolChain);
   const bool IsStaticPIE = getStaticPIE(Args, ToolChain);
   const bool IsStatic = getStatic(Args);
-  const bool HasCRTBeginEndFiles = IsIRIX ? 
-    ToolChain.GetRuntimeLibType(Args) != ToolChain::RLT_CompilerRT :
-    (ToolChain.getTriple().hasEnvironment() ||
-      (ToolChain.getTriple().getVendor() != llvm::Triple::MipsTechnologies));
+  const bool HasCRTBeginEndFiles =
+      ToolChain.getTriple().hasEnvironment() ||
+      (ToolChain.getTriple().getVendor() != llvm::Triple::MipsTechnologies);
 
   ArgStringList CmdArgs;
 
@@ -522,10 +521,9 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (crt1)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crt1)));
 
-      if (IsIRIX && 
-          ToolChain.GetRuntimeLibType(Args) != ToolChain::RLT_CompilerRT)
+      if (IsIRIX)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crti.o")));
-      else if (!IsIRIX)
+      else
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crti.o")));
     }
 
@@ -679,8 +677,7 @@ void tools::gnutools::Linker::ConstructJob(Compilation &C, const JobAction &JA,
         CmdArgs.push_back(Args.MakeArgString(P));
       }
       // TODO IRIX temp hack -- we need both irix-crtn.o and crtn.o
-      if (IsIRIX && 
-          ToolChain.GetRuntimeLibType(Args) != ToolChain::RLT_CompilerRT)
+      if (IsIRIX)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("irix-crtn.o")));
       if (!isAndroid)
         CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
