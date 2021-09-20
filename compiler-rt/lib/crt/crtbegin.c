@@ -69,6 +69,15 @@ __asm__(".pushsection .init,\"ax\",@progbits\n\t"
 __asm__(".pushsection .init,\"ax\",@progbits\n\t"
     "call " __USER_LABEL_PREFIX__ "__do_init\n\t"
     ".popsection");
+#elif defined(__sgi)
+void __attribute__((used)) _init() {
+  __do_init();
+}
+#elif defined(__sgi_nope)
+__asm__(".pushsection .init,\"ax\",@progbits\n\t"
+    "jal " __USER_LABEL_PREFIX__ "__do_init\n\t"
+    "nop\n\t"
+    ".popsection");
 #else
 #error "crtbegin without .init_fini array unimplemented for this architecture"
 #endif // CRT_HAS_INITFINI_ARRAY
@@ -121,6 +130,15 @@ __asm__(".pushsection .fini,\"ax\",@progbits\n\t"
 #elif defined(__sparc__)
 __asm__(".pushsection .fini,\"ax\",@progbits\n\t"
     "call " __USER_LABEL_PREFIX__ "__do_fini\n\t"
+    ".popsection");
+#elif defined(__sgi)
+void __attribute__((used)) _fini() {
+  __do_fini();
+}
+#elif defined(__sgi_nope)
+__asm__(".pushsection .fini,\"ax\",@progbits\n\t"
+    "jal " __USER_LABEL_PREFIX__ "__do_fini\n\t"
+    "nop\n\t"
     ".popsection");
 #else
 #error "crtbegin without .init_fini array unimplemented for this architecture"
