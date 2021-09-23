@@ -347,6 +347,12 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
   }
 
+  // Always export these dynamically and preemptible; rld depends on them existing and having GOT
+  // entries
+  CmdArgs.push_back("--export-dynamic-symbol=__Argc");
+  CmdArgs.push_back("--export-dynamic-symbol=__Argv");
+  CmdArgs.push_back("--export-dynamic-symbol=__rld_obj_head");
+
   ToolChain.addProfileRTLibs(Args, CmdArgs);
 
   const char *Exec = Args.MakeArgString(getToolChain().GetLinkerPath());
