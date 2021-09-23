@@ -31,6 +31,11 @@
 #pragma comment(lib, "pthread")
 #endif
 
+#if defined(__sgi)
+#include <sys/types.h>
+#include <sys/sysmp.h>
+#endif
+
 _LIBCPP_BEGIN_NAMESPACE_STD
 
 thread::~thread()
@@ -85,6 +90,11 @@ thread::hardware_concurrency() noexcept
     SYSTEM_INFO info;
     GetSystemInfo(&info);
     return info.dwNumberOfProcessors;
+#elif defined(__sgi)
+    int result = sysmp(MP_NPROCS);
+    if (result < 0)
+        return 0;
+    return static_cast<unsigned>(result);
 #else  // defined(CTL_HW) && defined(HW_NCPU)
     // TODO: grovel through /proc or check cpuid on x86 and similar
     // instructions on other architectures.
