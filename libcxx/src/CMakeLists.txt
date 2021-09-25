@@ -84,7 +84,16 @@ elseif("${CMAKE_SYSTEM_NAME}" STREQUAL "SunOS")
     support/solaris/wcsnrtombs.inc
     support/solaris/xlocale.cpp
     )
+elseif(LIBCXX_BUILD_FOR_IRIX)  # hack
+  list(APPEND LIBCXX_SOURCES
+    support/irix/mbsnrtowcs.c
+    support/irix/wcsnrtombs.c
+    )
 endif()
+  list(APPEND LIBCXX_SOURCES
+    support/irix/mbsnrtowcs.c
+    support/irix/wcsnrtombs.c
+    )
 
 if (LIBCXX_ENABLE_FILESYSTEM)
   list(APPEND LIBCXX_SOURCES

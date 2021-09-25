@@ -9,8 +9,6 @@
 #ifndef _LIBCPP_SUPPORT_IRIX_XLOCALE_H
 #define _LIBCPP_SUPPORT_IRIX_XLOCALE_H
 
-#if defined(__sgi)
-
 #include <cstdlib>
 #include <clocale>
 #include <cwctype>
@@ -19,20 +17,30 @@
 
 #include <__support/xlocale/__nop_locale_mgmt.h>
 
+extern "C" {
+size_t __bsd_wcsnrtombs(char *__dest, const wchar_t **__src, size_t __nwc,
+    size_t __len, mbstate_t *__ps);
+
+size_t __bsd_mbsnrtowcs(wchar_t * __dest, const char **__src, size_t __nms,
+    size_t __len, mbstate_t *__ps);
+}
+
 static inline 
 size_t wcsnrtombs(char *__dest, const wchar_t **__src, size_t __nwc,
     size_t __len, mbstate_t *__ps)
 {
-  return 0;
+  return __bsd_wcsnrtombs(__dest, __src, __nwc, __len, __ps);
 }
 
 static inline
 size_t mbsnrtowcs(wchar_t * __dest, const char **__src, size_t __nms,
     size_t __len, mbstate_t *__ps)
 {
-  return 0;
+  return __bsd_mbsnrtowcs(__dest, __src, __nms, __len, __ps);
 }
 
+// posix_l_fallback wants wcsnrtombs / mbsnrtowcs
+//
 #include <__support/xlocale/__posix_l_fallback.h>
 #include <__support/xlocale/__strtonum_fallback.h>
 
@@ -55,7 +63,5 @@ int vasprintf(char **strp, const char *fmt, va_list ap)
   }
   return str_size;
 }
-
-#endif // __sgi
 
 #endif // _LIBCPP_SUPPORT_IRIX_XLOCALE_H
