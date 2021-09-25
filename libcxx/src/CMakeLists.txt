@@ -101,8 +101,18 @@ elseif(ZOS)
     support/ibm/mbsnrtowcs.cpp
     support/ibm/wcsnrtombs.cpp
     support/ibm/xlocale_zos.cpp
+elseif(LIBCXX_BUILD_FOR_IRIX)  # hack
+  # TODO IRIX we can't use CMAKE_SYSTEM_NAME because there is no IRIX toolchain,
+  # so we need something else to identify
+  list(APPEND LIBCXX_SOURCES
+    support/irix/mbsnrtowcs.c
+    support/irix/wcsnrtombs.c
     )
 endif()
+#list(APPEND LIBCXX_SOURCES
+#    support/irix/mbsnrtowcs.c
+#    support/irix/wcsnrtombs.c
+#    )
 
 if (LIBCXX_ENABLE_FILESYSTEM)
   list(APPEND LIBCXX_SOURCES
