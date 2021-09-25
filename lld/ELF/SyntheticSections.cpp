@@ -1595,7 +1595,11 @@ void RelocationBaseSection::addReloc(RelType dynType,
                                      RelType type) {
   // Write the addends to the relocated address if required. We skip
   // it if the written value would be zero.
-  if (config->writeAddends && (expr != R_ADDEND || addend != 0))
+  // IRIX rld wants this to contain the relocated value + addend so that it can
+  // avoid relocating if the image is loaded at its preferred base.  That's handled
+  // in InputSection::relocateAlloc (specifically getTargetVA)
+  if ((config->writeAddends && (expr != R_ADDEND || addend != 0)) ||
+    config->osabi == ELFOSABI_IRIX)
     inputSec->relocations.push_back({expr, type, offsetInSec, addend, sym});
   addReloc({dynType, inputSec, offsetInSec, expr != R_ADDEND, sym, addend});
 }
