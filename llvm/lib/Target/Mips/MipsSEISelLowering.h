@@ -59,6 +59,9 @@ class TargetRegisterClass;
 
     const TargetRegisterClass *getRepRegClassFor(MVT VT) const override;
 
+    void markLibCallAttributes(MachineFunction *MF, unsigned CC,
+                               ArgListTy &Args) const override;
+
   private:
     bool isEligibleForTailCallOptimization(
         const CCState &CCInfo, unsigned NextStackOffset,
