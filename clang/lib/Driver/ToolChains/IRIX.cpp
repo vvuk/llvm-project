@@ -26,22 +26,17 @@ using tools::addPathIfExists;
 
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
-    : ToolChain(D, Triple, Args) {
+    : ToolChain(D, Triple, Args)
+{
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != D.Dir)
     getProgramPaths().push_back(D.Dir);
-
-  if (!D.SysRoot.empty()) {
-    SmallString<128> P(D.SysRoot);
-    llvm::sys::path::append(P, "lib");
-    getFilePaths().push_back(std::string(P.str()));
-  }
 
   StringRef cpu;
   StringRef abi;
   tools::mips::getMipsCPUAndABI(Args, Triple, cpu, abi);
 
-  mABI = abi;
+  mABI = abi.str();
 
   std::string SysRoot = computeSysRoot();
 
@@ -49,19 +44,20 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   if (getDriver().getInstalledDir() != getDriver().Dir)
     getProgramPaths().push_back(getDriver().Dir);
 
-  if (abi == "n32")
-    mOSLibDir = "lib32";
-  else if (abi == "n64")
-    mOSLibDir = "lib64";
-  else if (abi == "o32")
-    mOSLibDir = "lib";
-  else
-    llvm_unreachable("Invalid ABI");
+  // Find out the library suffix based on the ABI.
+  LibSuffix = tools::mips::getMipsABILibSuffix(Args, Triple);
 
-  //const std::string MultiarchTriple = getMultiarchTriple(D, Triple, SysRoot);
-  getFilePaths().push_back(SysRoot + "/usr/" + mOSLibDir + "/" + cpu.data());
-  getFilePaths().push_back(SysRoot + "/usr/" + mOSLibDir);
-  getFilePaths().push_back(SysRoot + "/" + mOSLibDir);
+  // IRIX has .../mips3 .../mips4 too
+  getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix + "/" + cpu.str());
+  getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix);
+  // I don't think this is needed
+  //getFilePaths().push_back(SysRoot + "/lib" + LibSuffix);
+
+  // this is a little wonky.  The ToolChain::ToolChain constructor calls the virtual
+  // getRuntimePath() before we've had a chance to init LibSuffix (or, possibly, the
+  // string, so that's not cool).  Push the real one in front.  Might be the same.
+  if (auto RuntimePath = getRuntimePath())
+    getLibraryPaths().insert(getLibraryPaths().begin(), *RuntimePath);
 
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
@@ -69,7 +65,7 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // FIXME: It's not clear whether we should use the driver's installed
   // directory ('Dir' below) or the ResourceDir.
   if (StringRef(D.Dir).startswith(SysRoot)) {
-    addPathIfExists(D, D.Dir + "/../" + mOSLibDir, getFilePaths());
+    addPathIfExists(D, D.Dir + "/../lib" + LibSuffix, getFilePaths());
   }
 }
 
@@ -78,13 +74,7 @@ Tool *IRIX::buildLinker() const {
 }
 
 std::string IRIX::getDynamicLinker(const llvm::opt::ArgList &Args) const {
-  if (mABI == "n32")
-    return "/usr/lib32/libc.so.1";
-  if (mABI == "n64")
-    return "/usr/lib64/libc.so.1";
-  if (mABI == "o32")
-    return "/usr/lib/libc.so.1";
-  llvm_unreachable("Bad ABI in getDynamicLinker");
+  return "/usr/lib" + LibSuffix + "/libc.so.1";
 }
 
 void IRIX::addClangTargetOptions(const ArgList &DriverArgs,
@@ -191,6 +181,27 @@ void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
   }
 }
 
+Optional<std::string> IRIX::getRuntimePath() const {
+  const Driver &D = getDriver();
+  SmallString<128> P;
+
+  // First try the triple passed to driver as --target=<triple>.
+  P.assign(D.ResourceDir);
+  llvm::sys::path::append(P, "lib" + LibSuffix, D.getTargetTriple());
+  printf("RUNTIME PATH TRYING %s\n", P.c_str());
+  if (getVFS().exists(P))
+    return llvm::Optional<std::string>(std::string(P.str()));
+
+  // Second try the normalized triple.
+  P.assign(D.ResourceDir);
+  printf("RUNTIME PATH TRYING %s\n", P.c_str());
+  llvm::sys::path::append(P, "lib" + LibSuffix, getTriple().str());
+  if (getVFS().exists(P))
+    return llvm::Optional<std::string>(std::string(P.str()));
+
+  return None;
+}
+
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                    const InputInfo &Output,
                                    const InputInfoList &Inputs,
@@ -223,6 +234,10 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-z");
     CmdArgs.push_back("noexecstack");
   }
+
+  // IRIX doesn't understand this, so let's not confuse matters
+  CmdArgs.push_back("-z");
+  CmdArgs.push_back("norelro");
 
   CmdArgs.push_back("--eh-frame-hdr");
 
