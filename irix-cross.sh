@@ -9,17 +9,17 @@ if [ -f clang/CMakeLists.txt ] ; then
     exit 1
 fi
 
-NDIR=../build/full/bin
+NDIR=../build-full
 
 if [ x"$1" != "x" ] ; then
     NDIR=$1
     shift
 fi
 
-if [ ! -f ${NDIR}/llvm-tblgen ] ; then
+if [ ! -f ${NDIR}/bin/llvm-tblgen ] ; then
     echo "Couldn't find ${NDIR}/bin/llvm-tblgen"
     echo "Please specify path to built llvm native cross-compiler binary directory, e.g."
-    echo "   $0 ../build-full/bin"
+    echo "   $0 ../build-full"
     exit 1
 fi
 
@@ -32,12 +32,8 @@ NDIR=$(readlink -f ${NDIR})
 
 echo ${NDIR}
 
-# One day soon..
-CROSS_CC=${NDIR}/clang
-CROSS_CXX=${NDIR}/clang++
-#CROSS_CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
-#CROSS_CXX=/opt/irix/sgug/bin/mips-sgi-irix6.5-g++
-#XLINK="-lc -lgen"
+CROSS_CC=${NDIR}/bin/clang
+CROSS_CXX=${NDIR}/bin/clang++
 XLINK="-lpthread"
 
 if [ ! -f ${CROSS_CC} ] ; then
@@ -55,30 +51,20 @@ RELDIR=$(dirname $0)
 set -x
 
 cmake -G Ninja \
-    -DLLVM_ENABLE_PROJECTS="clang;lld" \
     -DCMAKE_CROSSCOMPILING=True \
+    -C ${RELDIR}/clang/cmake/caches/IRIX-cross.cmake \
     -DCMAKE_INSTALL_PREFIX=/usr/sgug/llvm \
     -DGCC_INSTALL_PREFIX=/usr/sgug \
-    -DLLVM_TABLEGEN=${NDIR}/llvm-tblgen \
-    -DCLANG_TABLEGEN=${NDIR}/clang-tblgen \
-    -DCLANG_DEFAULT_LINKER=lld \
-    -DLLVM_DEFAULT_TARGET_TRIPLE=mips64-sgi-irix6.5 \
-    -DLLVM_TARGET_ARCH=Mips \
-    -DLLVM_TARGETS_TO_BUILD=Mips \
-    -DCMAKE_BUILD_TYPE=Release \
+    -DLLVM_TABLEGEN=${NDIR}/bin/llvm-tblgen \
+    -DCLANG_TABLEGEN=${NDIR}/bin/clang-tblgen \
     -DLLVM_OPTIMIZED_TABLEGEN=On \
     -DCMAKE_C_COMPILER="${CROSS_CC}" -DCMAKE_CXX_COMPILER="${CROSS_CXX}" \
-    -DLLVM_INCLUDE_RUNTIMES=Off \
-    -DLLVM_INCLUDE_EXAMPLES=Off \
-    -DLLVM_INCLUDE_BENCHMARKS=Off \
-    -DLLVM_INCLUDE_TESTS=Off \
-    -DLLVM_INCLUDE_UTILS=Off \
-    -DLLVM_INCLUDE_GO_TESTS=Off \
+    -DLLVM_INCLUDE_TESTS=OFF \
     -DCMAKE_C_FLAGS="-I=/usr/xg/include" \
     -DCMAKE_CXX_FLAGS="-I=/usr/xg/include" \
-    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
-    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
-    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -Wl,-Bstatic -lxg -Wl,-Bdynamic $(XLINK)" \
+    -DCMAKE_EXE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lgen ${XLINK}" \
+    -DCMAKE_SHARED_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lgen ${XLINK}" \
+    -DCMAKE_MODULE_LINKER_FLAGS="-L=/usr/xg/lib32 -lxg -lgen ${XLINK}" \
     $* \
     ${RELDIR}/llvm
 

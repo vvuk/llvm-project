@@ -10,18 +10,20 @@ if [ -f clang/CMakeLists.txt ] ; then
     exit 1
 fi
 
-if [ ! -f /opt/irix/root/lib32/libc.so.1 ] ; then
+ROOT=/opt/irix/root
+#ROOT=/home/vladimir/tmp/irix655
+if [ ! -f ${ROOT}/lib32/libc.so.1 ] ; then
     echo "Expected to find IRIX root in /opt/irix/root"
     exit 1
 fi
 
-if [ ! -f /opt/irix/root/usr/xg/include/setenv.h ] ; then
+if [ ! -f ${ROOT}/usr/xg/include/setenv.h ] ; then
     echo "libxg stuff not found, run make install in libxg"
     exit 1
 fi 
 
-if [ ! -f /opt/irix/root/usr/lib/clang/mips64-sgi-irix6.5/gcc-irix-crti.o -or ! -f lib/clang/12.0.0/lib/mips64-sgi-irix6.5/gcc-irix-crtn.o ] ; then
-    echo "/opt/irix/root/usr/lib/clang/mips64-sgi-irix6.5 needs to be populated with:"
+if [ ! -f ${ROOT}/usr/lib/clang/mips64-sgi-irix6.5/gcc-irix-crti.o -or ! -f lib/clang/12.0.0/lib/mips64-sgi-irix6.5/gcc-irix-crtn.o ] ; then
+    echo "${ROOT}/usr/lib/clang/mips64-sgi-irix6.5 needs to be populated with:"
     echo "    gcc/mips-sgi-irix6.5/9/irix-crtn.o -> gcc-irix-crtn.o"
     echo "    gcc/mips-sgi-irix6.5/9/irix-crti.o -> gcc-irix-crti.o"
     echo "    gcc/mips-sgi-irix6.5/9/include -> include"
@@ -42,12 +44,12 @@ RELDIR=$(dirname $0)
 (set -x ; \
 cmake -G Ninja \
     -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
-    -DIRIX_mips64_SYSROOT=/opt/irix/root \
-    -DDEFAULT_SYSROOT=/opt/irix/root \
+    -DIRIX_mips64_SYSROOT=${ROOT} \
+    -DDEFAULT_SYSROOT=${ROOT} \
     -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ \
     -DCLANG_DEFAULT_LINKER=lld \
     -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
-    -DGCC_INSTALL_PREFIX=/opt/irix/root/usr/sgug \
+    -DGCC_INSTALL_PREFIX=${ROOT}/usr/sgug \
     ${RELDIR}/llvm \
 )
 
