@@ -75,6 +75,7 @@ public:
   llvm::DebuggerKind getDefaultDebuggerTuning() const override {
     return llvm::DebuggerKind::GDB; // where did DBX go?
   }
+  Optional<std::string> getRuntimePath() const override;
 
   SanitizerMask getSupportedSanitizers() const override { return SanitizerMask(); }
   SanitizerMask getDefaultSanitizers() const override { return SanitizerMask(); }
@@ -98,13 +99,12 @@ public:
   std::string getDynamicLinker(const llvm::opt::ArgList &Args) const;
 
   StringRef GetABI() const { return mABI; }
-  const std::string& GetOSLibDir() const { return mOSLibDir; }
 
 protected:
   Tool *buildLinker() const override;
 
-  std::string mOSLibDir;
-  StringRef mABI;
+  std::string LibSuffix;
+  std::string mABI;
 };
 
 } // end namespace toolchains
