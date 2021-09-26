@@ -1588,6 +1588,8 @@ void RelocationBaseSection::addReloc(RelType dynType, InputSectionBase *isec,
   addReloc({dynType, isec, offsetInSec, false, sym, 0});
 }
 
+const char* xtoString(RelExpr expr);
+
 void RelocationBaseSection::addReloc(RelType dynType,
                                      InputSectionBase *inputSec,
                                      uint64_t offsetInSec, Symbol *sym,
@@ -1598,8 +1600,12 @@ void RelocationBaseSection::addReloc(RelType dynType,
   // IRIX rld wants this to contain the relocated value + addend so that it can
   // avoid relocating if the image is loaded at its preferred base.  That's handled
   // in InputSection::relocateAlloc (specifically getTargetVA)
-  if ((config->writeAddends && (expr != R_ADDEND || addend != 0)) ||
-    config->osabi == ELFOSABI_IRIX)
+  if (config->osabi == ELFOSABI_IRIX && !getenv("NOHACK1")) {
+    printf("IRIX1: rel offs %p sym %s symva %p expr %s(%d) type %s(%d) addend %d\n", offsetInSec, toString(sym->getName()).c_str(),
+      sym->getVA(), xtoString(expr), expr, toString(type).c_str(), type, addend);
+    inputSec->relocations.push_back({expr, type, offsetInSec, addend, sym});
+  }
+  else if (config->writeAddends && (expr != R_ADDEND || addend != 0))
     inputSec->relocations.push_back({expr, type, offsetInSec, addend, sym});
   addReloc({dynType, inputSec, offsetInSec, expr != R_ADDEND, sym, addend});
 }
