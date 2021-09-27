@@ -396,6 +396,7 @@ int64_t MIPS<ELFT>::getImplicitAddend(const uint8_t *buf, RelType type) const {
   case R_MIPS_TLS_DTPREL32:
   case R_MIPS_TLS_DTPMOD32:
   case R_MIPS_TLS_TPREL32:
+  case R_MIPS_SCN_DISP:
     return SignExtend64<32>(read32(buf));
   case R_MIPS_26:
     // FIXME (simon): If the relocation target symbol is not a PLT entry

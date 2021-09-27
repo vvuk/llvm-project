@@ -1579,8 +1579,11 @@ int64_t DynamicReloc::computeAddend() const {
     assert(sym == nullptr);
     return addend;
   case AgainstSymbol:
-    assert(sym != nullptr);
-    return addend;
+    if (config->osabi != ELFOSABI_IRIX) {
+      assert(sym != nullptr);
+      return addend;
+    }
+    // fall through on IRIX
   case AddendOnlyWithTargetVA:
   case AgainstSymbolWithTargetVA:
     return InputSection::getRelocTargetVA(inputSec->file, type, addend,
@@ -1648,14 +1651,13 @@ void RelocationBaseSection::addReloc(DynamicReloc::Kind kind, RelType dynType,
   // IRIX rld wants this to contain the relocated value + addend so that it can
   // avoid relocating if the image is loaded at its preferred base.  That's handled
   // in InputSection::relocateAlloc (specifically getTargetVA)
-  if (config->osabi == ELFOSABI_IRIX && !getenv("NOHACK1")) {
-    printf("IRIX1: rel offs %p sym %s symva %p expr %s(%d) addendRelType %s(%d) addend %d\n", offsetInSec, toString(sym.getName()).c_str(),
-      sym.getVA(), xtoString(expr), expr, toString(addendRelType).c_str(), addendRelType, addend);
+  if (config->osabi == ELFOSABI_IRIX) {
+    //printf("IRIX1: rel offs %p sym %s symva %p expr %s(%d) addendRelType %s(%d) addend %d\n", offsetInSec, toString(sym.getName()).c_str(), sym.getVA(), xtoString(expr), expr, toString(addendRelType).c_str(), addendRelType, addend);
     inputSec->relocations.push_back({expr, addendRelType, offsetInSec, addend, &sym});
-  }
+  } else
   // Write the addends to the relocated address if required. We skip
   // it if the written value would be zero.
-  else if ((config->writeAddends && (expr != R_ADDEND || addend != 0)))
+  if (config->writeAddends && (expr != R_ADDEND || addend != 0))
     inputSec->relocations.push_back(
         {expr, addendRelType, offsetInSec, addend, &sym});
   addReloc({dynType, inputSec, offsetInSec, kind, sym, addend, expr});
