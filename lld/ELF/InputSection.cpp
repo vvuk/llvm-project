@@ -756,7 +756,7 @@ uint64_t InputSectionBase::getRelocTargetVA(const InputFile *file, RelType type,
     // IRIX rld explicitly does not write relocations if the DSO was loaded
     // at its preferred address -- it expects the final absolute address to already be there
     if (config->osabi == ELFOSABI_IRIX && sym.isDefined() && type != ELF::R_MIPS_REL32 && !getenv("NOHACK1"))
-      return sym.getVA(a) + a;
+      return sym.getVA(a);
     return a;
   case R_ARM_SBREL:
     return sym.getVA(a) - getARMStaticBase(sym);
