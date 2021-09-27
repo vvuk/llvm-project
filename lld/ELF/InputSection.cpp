@@ -675,81 +675,9 @@ static int64_t getTlsTpOffset(const Symbol &s) {
   }
 }
 
-const char* xtoString(RelExpr expr)
-{
-  switch (expr) {
- case R_ABS: return "R_ABS";
- case R_ADDEND: return "R_ADDEND";
- case R_DTPREL: return "R_DTPREL";
- case R_GOT: return "R_GOT";
- case R_GOT_OFF: return "R_GOT_OFF";
- case R_GOT_PC: return "R_GOT_PC";
- case R_GOTONLY_PC: return "R_GOTONLY_PC";
- case R_GOTPLTONLY_PC: return "R_GOTPLTONLY_PC";
- case R_GOTPLT: return "R_GOTPLT";
- case R_GOTPLTREL: return "R_GOTPLTREL";
- case R_GOTREL: return "R_GOTREL";
- case R_NONE: return "R_NONE";
- case R_PC: return "R_PC";
- case R_PLT: return "R_PLT";
- case R_PLT_PC: return "R_PLT_PC";
- case R_RELAX_GOT_PC: return "R_RELAX_GOT_PC";
- case R_RELAX_GOT_PC_NOPIC: return "R_RELAX_GOT_PC_NOPIC";
- case R_RELAX_TLS_GD_TO_IE: return "R_RELAX_TLS_GD_TO_IE";
- case R_RELAX_TLS_GD_TO_IE_ABS: return "R_RELAX_TLS_GD_TO_IE_ABS";
- case R_RELAX_TLS_GD_TO_IE_GOT_OFF: return "R_RELAX_TLS_GD_TO_IE_GOT_OFF";
- case R_RELAX_TLS_GD_TO_IE_GOTPLT: return "R_RELAX_TLS_GD_TO_IE_GOTPLT";
- case R_RELAX_TLS_GD_TO_LE: return "R_RELAX_TLS_GD_TO_LE";
- case R_RELAX_TLS_GD_TO_LE_NEG: return "R_RELAX_TLS_GD_TO_LE_NEG";
- case R_RELAX_TLS_IE_TO_LE: return "R_RELAX_TLS_IE_TO_LE";
- case R_RELAX_TLS_LD_TO_LE: return "R_RELAX_TLS_LD_TO_LE";
- case R_RELAX_TLS_LD_TO_LE_ABS: return "R_RELAX_TLS_LD_TO_LE_ABS";
- case R_SIZE: return "R_SIZE";
- case R_TPREL: return "R_TPREL";
- case R_TPREL_NEG: return "R_TPREL_NEG";
- case R_TLSDESC: return "R_TLSDESC";
- case R_TLSDESC_CALL: return "R_TLSDESC_CALL";
- case R_TLSDESC_PC: return "R_TLSDESC_PC";
- case R_TLSGD_GOT: return "R_TLSGD_GOT";
- case R_TLSGD_GOTPLT: return "R_TLSGD_GOTPLT";
- case R_TLSGD_PC: return "R_TLSGD_PC";
- case R_TLSIE_HINT: return "R_TLSIE_HINT";
- case R_TLSLD_GOT: return "R_TLSLD_GOT";
- case R_TLSLD_GOTPLT: return "R_TLSLD_GOTPLT";
- case R_TLSLD_GOT_OFF: return "R_TLSLD_GOT_OFF";
- case R_TLSLD_HINT: return "R_TLSLD_HINT";
- case R_TLSLD_PC: return "R_TLSLD_PC";
- case R_AARCH64_GOT_PAGE_PC: return "R_AARCH64_GOT_PAGE_PC";
- case R_AARCH64_GOT_PAGE: return "R_AARCH64_GOT_PAGE";
- case R_AARCH64_PAGE_PC: return "R_AARCH64_PAGE_PC";
- case R_AARCH64_RELAX_TLS_GD_TO_IE_PAGE_PC: return "R_AARCH64_RELAX_TLS_GD_TO_IE_PAGE_PC";
- case R_AARCH64_TLSDESC_PAGE: return "R_AARCH64_TLSDESC_PAGE";
- case R_ARM_PCA: return "R_ARM_PCA";
- case R_ARM_SBREL: return "R_ARM_SBREL";
- case R_MIPS_GOTREL: return "R_MIPS_GOTREL";
- case R_MIPS_GOT_GP: return "R_MIPS_GOT_GP";
- case R_MIPS_GOT_GP_PC: return "R_MIPS_GOT_GP_PC";
- case R_MIPS_GOT_LOCAL_PAGE: return "R_MIPS_GOT_LOCAL_PAGE";
- case R_MIPS_GOT_OFF: return "R_MIPS_GOT_OFF";
- case R_MIPS_GOT_OFF32: return "R_MIPS_GOT_OFF32";
- case R_MIPS_TLSGD: return "R_MIPS_TLSGD";
- case R_MIPS_TLSLD: return "R_MIPS_TLSLD";
- case R_PPC32_PLTREL: return "R_PPC32_PLTREL";
- case R_PPC64_CALL: return "R_PPC64_CALL";
- case R_PPC64_CALL_PLT: return "R_PPC64_CALL_PLT";
- case R_PPC64_RELAX_TOC: return "R_PPC64_RELAX_TOC";
- case R_PPC64_TOCBASE: return "R_PPC64_TOCBASE";
- case R_PPC64_RELAX_GOT_PC: return "R_PPC64_RELAX_GOT_PC";
- case R_RISCV_ADD: return "R_RISCV_ADD";
- case R_RISCV_PC_INDIRECT: return "R_RISCV_PC_INDIRECT";
-  }
-  return "???";
-}
-
 uint64_t InputSectionBase::getRelocTargetVA(const InputFile *file, RelType type,
                                             int64_t a, uint64_t p,
                                             const Symbol &sym, RelExpr expr) {
-  //printf("IRIX2: rel: %p sym: %s a: %p getVA(a): %p expr: %s(%d) type: %s(%d)\n", (void*) p, toString(sym.getName()).c_str(), (void*) a, sym.getVA(a), xtoString(expr), expr, toString(type).c_str(), type);
   switch (expr) {
   case R_ABS:
   case R_DTPREL:
