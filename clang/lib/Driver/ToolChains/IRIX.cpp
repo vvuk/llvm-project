@@ -188,13 +188,11 @@ Optional<std::string> IRIX::getRuntimePath() const {
   // First try the triple passed to driver as --target=<triple>.
   P.assign(D.ResourceDir);
   llvm::sys::path::append(P, "lib" + LibSuffix, D.getTargetTriple());
-  printf("RUNTIME PATH TRYING %s\n", P.c_str());
   if (getVFS().exists(P))
     return llvm::Optional<std::string>(std::string(P.str()));
 
   // Second try the normalized triple.
   P.assign(D.ResourceDir);
-  printf("RUNTIME PATH TRYING %s\n", P.c_str());
   llvm::sys::path::append(P, "lib" + LibSuffix, getTriple().str());
   if (getVFS().exists(P))
     return llvm::Optional<std::string>(std::string(P.str()));
