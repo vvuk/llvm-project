@@ -75,7 +75,7 @@ public:
   llvm::DebuggerKind getDefaultDebuggerTuning() const override {
     return llvm::DebuggerKind::GDB; // where did DBX go?
   }
-  Optional<std::string> getRuntimePath() const override;
+  std::string getRuntimePath() const override;
 
   SanitizerMask getSupportedSanitizers() const override { return SanitizerMask(); }
   SanitizerMask getDefaultSanitizers() const override { return SanitizerMask(); }

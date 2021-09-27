@@ -56,8 +56,7 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // this is a little wonky.  The ToolChain::ToolChain constructor calls the virtual
   // getRuntimePath() before we've had a chance to init LibSuffix (or, possibly, the
   // string, so that's not cool).  Push the real one in front.  Might be the same.
-  if (auto RuntimePath = getRuntimePath())
-    getLibraryPaths().insert(getLibraryPaths().begin(), *RuntimePath);
+  getLibraryPaths().insert(getLibraryPaths().begin(), getRuntimePath());
 
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
@@ -181,25 +180,10 @@ void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
   }
 }
 
-Optional<std::string> IRIX::getRuntimePath() const {
-  const Driver &D = getDriver();
-  SmallString<128> P;
-
-  // First try the triple passed to driver as --target=<triple>.
-  P.assign(D.ResourceDir);
-  llvm::sys::path::append(P, "lib" + LibSuffix, D.getTargetTriple());
-  printf("RUNTIME PATH TRYING %s\n", P.c_str());
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  // Second try the normalized triple.
-  P.assign(D.ResourceDir);
-  printf("RUNTIME PATH TRYING %s\n", P.c_str());
-  llvm::sys::path::append(P, "lib" + LibSuffix, getTriple().str());
-  if (getVFS().exists(P))
-    return llvm::Optional<std::string>(std::string(P.str()));
-
-  return None;
+std::string IRIX::getRuntimePath() const {
+  SmallString<128> P(getDriver().ResourceDir);
+  llvm::sys::path::append(P, "lib" + LibSuffix, getTripleString());
+  return std::string(P.str());
 }
 
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,

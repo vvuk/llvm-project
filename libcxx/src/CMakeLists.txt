@@ -101,6 +101,7 @@ elseif(ZOS)
     support/ibm/mbsnrtowcs.cpp
     support/ibm/wcsnrtombs.cpp
     support/ibm/xlocale_zos.cpp
+    )
 elseif(LIBCXX_BUILD_FOR_IRIX)  # hack
   # TODO IRIX we can't use CMAKE_SYSTEM_NAME because there is no IRIX toolchain,
   # so we need something else to identify

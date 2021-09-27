@@ -1638,13 +1638,9 @@ void RelocationBaseSection::addAddendOnlyRelocIfNonPreemptible(
              sym, 0, R_ABS, addendRelType);
 }
 
-<<<<<<< HEAD
-void RelocationBaseSection::addReloc(DynamicReloc::Kind kind, RelType dynType,
-=======
 const char* xtoString(RelExpr expr);
 
-void RelocationBaseSection::addReloc(RelType dynType,
->>>>>>> RELOCATION DEBUGGING PRINTFS
+void RelocationBaseSection::addReloc(DynamicReloc::Kind kind, RelType dynType,
                                      InputSectionBase *inputSec,
                                      uint64_t offsetInSec, Symbol &sym,
                                      int64_t addend, RelExpr expr,
