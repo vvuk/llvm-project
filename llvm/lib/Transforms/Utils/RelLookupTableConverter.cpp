@@ -108,11 +108,12 @@ static GlobalVariable *createRelLookupTable(Function &Func,
   for (Use &Operand : LookupTableArr->operands()) {
     Constant *Element = cast<Constant>(Operand);
     Type *IntPtrTy = M.getDataLayout().getIntPtrType(M.getContext());
+    Type *Int32Ty = Type::getInt32Ty(M.getContext());
     Constant *Base = llvm::ConstantExpr::getPtrToInt(RelLookupTable, IntPtrTy);
     Constant *Target = llvm::ConstantExpr::getPtrToInt(Element, IntPtrTy);
     Constant *Sub = llvm::ConstantExpr::getSub(Target, Base);
-    Constant *RelOffset =
-        llvm::ConstantExpr::getTrunc(Sub, Type::getInt32Ty(M.getContext()));
+    Constant *RelOffset = Sub->getType() == Int32Ty ? Sub :
+        llvm::ConstantExpr::getTrunc(Sub, Int32Ty);
     RelLookupTableContents[Idx++] = RelOffset;
   }
 
