@@ -41,9 +41,8 @@ public:
   bool isPIEDefault() const override { return false; }
   bool isPICDefaultForced() const override { return false; }
   llvm::DebuggerKind getDefaultDebuggerTuning() const override {
-    return llvm::DebuggerKind::GDB; // where did DBX go?
+    return llvm::DebuggerKind::DBX;
   }
-  std::string getRuntimePath() const override;
 
   SanitizerMask getSupportedSanitizers() const override { return SanitizerMask(); }
   SanitizerMask getDefaultSanitizers() const override { return SanitizerMask(); }

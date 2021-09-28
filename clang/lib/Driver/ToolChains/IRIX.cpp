@@ -157,7 +157,15 @@ void IRIX::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
 
   switch (GetCXXStdlibType(DriverArgs)) {
   case ToolChain::CST_Libcxx: {
-    SmallString<128> P(getDriver().Dir);
+    SmallString<128> P;
+
+    P = getDriver().Dir;
+    llvm::sys::path::append(P, "..", "include");
+    llvm::sys::path::append(P, getTripleString());
+    llvm::sys::path::append(P, "c++", "v1");
+    addSystemInclude(DriverArgs, CC1Args, P.str());
+
+    P = getDriver().Dir;
     llvm::sys::path::append(P, "..", "include", "c++", "v1");
     addSystemInclude(DriverArgs, CC1Args, P.str());
     break;
@@ -178,12 +186,6 @@ void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
   case ToolChain::CST_Libstdcxx:
     llvm_unreachable("invalid stdlib name");
   }
-}
-
-std::string IRIX::getRuntimePath() const {
-  SmallString<128> P(getDriver().ResourceDir);
-  llvm::sys::path::append(P, "lib" + LibSuffix, getTripleString());
-  return std::string(P.str());
 }
 
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
