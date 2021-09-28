@@ -47,6 +47,11 @@
   #define _LIBUNWIND_USE_IRIX_RLD 1
   #define _LIBUNWIND_SUPPORT_DWARF_UNWIND 1
   #define _LIBUNWIND_SUPPORT_DWARF_INDEX 1
+
+  // Fun bug -- on 64-bit abi, IRIX defines uintptr_t to be unsigned long int, but defines
+  // PRIxPTR to be "llx" not "lx"
+  #undef PRIxPTR
+  #define PRIxPTR "lx"
 #else
   // Assume an ELF system with a dl_iterate_phdr function.
   #define _LIBUNWIND_USE_DL_ITERATE_PHDR 1

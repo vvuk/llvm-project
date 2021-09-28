@@ -25,8 +25,6 @@ if(LLVM_ENABLE_ZLIB)
   set(imported_libs ZLIB::ZLIB)
 endif()
 
-check_include_file(sgidefs.h HAVE_SGIDEFS_H)
-
 if( MSVC OR MINGW )
   # libuuid required for FOLDERID_Profile usage in lib/Support/Windows/Path.inc.
   # advapi32 required for CryptAcquireContextW in lib/Support/Windows/Path.inc.
@@ -48,12 +46,6 @@ elseif( CMAKE_HOST_UNIX )
   endif()
   if( LLVM_ENABLE_TERMINFO )
     set(imported_libs ${imported_libs} "${TERMINFO_LIB}")
-  endif()
-  if(HAVE_SGIDEFS_H)
-    #find_library(XG_LIB NAMES xg)
-    #set(imported_libs ${imported_libs} "/opt/${XG_LIB}")
-    #set(imported_libs ${imported_libs} "/opt/irix/root/usr/xg/lib32/libxg.a")
-    #include_directories("/opt/irix/root/usr/xg/include")
   endif()
   if( LLVM_ENABLE_THREADS AND (HAVE_LIBATOMIC OR HAVE_CXX_LIBATOMICS64) )
     set(system_libs ${system_libs} atomic)

@@ -4,7 +4,7 @@ set(HEXAGON hexagon)
 set(X86 i386)
 set(X86_64 x86_64)
 set(MIPS32 mips mipsel)
-set(MIPS64 mips64 mips64el)
+set(MIPS64 mips64 mips64el mipsn32)
 set(PPC32 powerpc)
 set(PPC64 powerpc64 powerpc64le)
 set(RISCV32 riscv32)
@@ -28,7 +28,7 @@ set(ALL_SANITIZER_COMMON_SUPPORTED_ARCH ${X86} ${X86_64} ${PPC64} ${RISCV64}
 set(ALL_ASAN_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64} ${RISCV64}
     ${MIPS32} ${MIPS64} ${PPC64} ${S390X} ${SPARC} ${SPARCV9} ${HEXAGON})
 set(ALL_CRT_SUPPORTED_ARCH ${X86} ${X86_64} ${ARM32} ${ARM64} ${PPC32}
-    ${PPC64} ${RISCV32} ${RISCV64} ${VE} ${HEXAGON})
+    ${PPC64} ${RISCV32} ${RISCV64} ${VE} ${HEXAGON} ${MIPS64})
 set(ALL_DFSAN_SUPPORTED_ARCH ${X86_64} ${MIPS64} ${ARM64})
 
 if(ANDROID)

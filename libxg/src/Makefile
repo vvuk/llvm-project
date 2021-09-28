@@ -1,8 +1,10 @@
 .POSIX:
 
 .SUFFIXES:
-CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
-CFLAGS=-O3 -mips3
+#CC=/opt/irix/sgug/bin/mips-sgi-irix6.5-gcc
+#CFLAGS=-O3 -mips3
+CC=/home/vladimir/proj/trunk-llvm/build-full/bin/clang
+CFLAGS=-O3 --target=mips64-sgi-irix6.5 -mabi=n64 -mips4
 PREFIX=/usr
 LDFLAGS=-shared
 

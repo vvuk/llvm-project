@@ -110,14 +110,14 @@ extern "C" {
 #include <objlist.h>
 #include <rld_interface.h>
 
-int dladdr(const void *addr, Dl_info *info) {
-  return (int) _rld_new_interface(_RLD_DLADDR, addr, info);
+long dladdr(const void *addr, Dl_info *info) {
+  return (long) _rld_new_interface(_RLD_DLADDR, addr, info);
 }
 
-#if defined(_ABIN32)
-extern Elf32_Obj_Info *__rld_obj_head;
+#if defined(_ABI64)
+extern Elf64_Obj_Info *__rld_obj_head;
 #else
-#error Only N32 for now
+extern Elf32_Obj_Info *__rld_obj_head;
 #endif
 }
 

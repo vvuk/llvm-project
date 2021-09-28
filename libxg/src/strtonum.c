@@ -24,8 +24,8 @@
 #define TOOLARGE 	3
 
 /* IRIX fixes */
-#define LLONG_MIN LONGLONG_MIN
-#define LLONG_MAX LONGLONG_MAX
+//#define LLONG_MIN LONGLONG_MIN
+//#define LLONG_MAX LONGLONG_MAX
 
 long long
 strtonum(const char *numstr, long long minval, long long maxval,
