@@ -7,8 +7,8 @@ set -e
 LLVMV=14.0.0
 
 STAGE0=../build-full
-CC=$STAGE0/bin/clang
-CXX=$STAGE0/bin/clang++
+CC=$(readlink -f $STAGE0/bin/clang)
+CXX=$(readlink -f $STAGE0/bin/clang++)
 
 DEST=./lib/clang/${LLVMV}/lib
 rm -rf ${DEST}

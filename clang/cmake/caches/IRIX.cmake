@@ -9,8 +9,9 @@ set(PACKAGE_VENDOR IRIX CACHE STRING "")
 
 set(LLVM_ENABLE_PROJECTS "clang;clang-tools-extra;lld;llvm" CACHE STRING "")
 set(LLVM_ENABLE_RUNTIMES "libunwind;compiler-rt;libcxxabi;libcxx" CACHE STRING "")
-set(LLVM_RUNTIME_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
 set(LLVM_DEFAULT_TARGET_TRIPLE "mips64-sgi-irix6.5-gnuabin32" CACHE STRING "")
+set(LLVM_RUNTIME_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
+set(LLVM_BUILTIN_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
 
 set(LLVM_TARGETS_TO_BUILD Mips CACHE STRING "")
 set(LLVM_TARGET_ARCH Mips CACHE STRING "")
@@ -41,10 +42,15 @@ set(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
 set(CLANG_ENABLE_STATIC_ANALYZER OFF CACHE BOOL "")
 set(CLANG_PLUGIN_SUPPORT OFF CACHE BOOL "")
 
+# Skip the builtins checks
+set(BUILTINS_CMAKE_ARGS "-DCAN_TARGET_mipsn32=YES;-DCAN_TARGET_mips64=YES" CACHE STRING "")
+
 foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
     # CMake doesn't know this as a valid system
     #set(RUNTIMES_${target}_CMAKE_SYSTEM_NAME "IRIX" CACHE STRING "")
-    set(RUNTIMES_${target}_BUILD_FOR_IRIX ON CACHE BOOL "")
+    set(RUNTIMES_${target}_LIBCXX_BUILD_FOR_IRIX ON CACHE BOOL "")
+
+    set(RUNTIMES_${target}_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ON CACHE BOOL "")
 
     set(RUNTIMES_${target}_COMPILER_RT_BUILD_CRT ON CACHE BOOL "")
     set(RUNTIMES_${target}_COMPILER_RT_BUILD_SANITIZERS OFF CACHE BOOL "")
@@ -61,7 +67,10 @@ foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
     set(RUNTIMES_${target}_LIBUNWIND_USE_COMPILER_RT ON CACHE BOOL "")
     set(RUNTIMES_${target}_LIBUNWIND_LINK_FLAGS "-nodefaultlibs" CACHE STRING "")
 
-    set(RUNTIMES_${target}_LIBCXXABI_ENABLE_SHARED ON CACHE BOOL "")
+    # We can't enable shared libcxxabi -- it needs posix_memalign, which is in support for libcxx (they both need it).
+    # In the future we could move it to libcxxabi but this is simpler
+    ###set(RUNTIMES_${target}_LIBCXXABI_ENABLE_SHARED ON CACHE BOOL "")
+    set(RUNTIMES_${target}_LIBCXXABI_ENABLE_SHARED OFF CACHE BOOL "")
     set(RUNTIMES_${target}_LIBCXXABI_ENABLE_STATIC_UNWINDER ON CACHE BOOL "")
     set(RUNTIMES_${target}_LIBCXXABI_INSTALL_LIBRARY ON CACHE BOOL "")
     set(RUNTIMES_${target}_LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
@@ -69,17 +78,7 @@ foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
 
     set(RUNTIMES_${target}_LIBCXX_ENABLE_SHARED ON CACHE BOOL "")
     set(RUNTIMES_${target}_LIBCXX_ENABLE_STATIC_ABI_LIBRARY ON CACHE BOOL "")
-    # This is an annoying hack
-    set(RUNTIMES_${target}_LIBCXX_CMAKE_ARGS -DLIBCXX_BUILD_FOR_IRIX=ON CACHE STRING "")
-
-    set(RUNTIMES_${target}_LIBCXXABI_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
-    set(RUNTIMES_${target}_LIBCXX_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
 endforeach()
-
-set(RUNTIMES_mips64-sgi-irix6.5-gnuabin32_LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
-set(RUNTIMES_mips64-sgi-irix6.5-gnuabin32_LIBCXX_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
-set(RUNTIMES_mips64-sgi-irix6.5_LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib64 -lxg" CACHE STRING "")
-set(RUNTIMES_mips64-sgi-irix6.5_LIBCXX_LINK_FLAGS "-L=/usr/xg/lib64 -lxg" CACHE STRING "")
 
 ##set(BOOTSTRAP_LLVM_ENABLE_LTO ON CACHE BOOL "")
 ##set(BOOTSTRAP_LLVM_ENABLE_LLD ON CACHE BOOL "")
