@@ -17,38 +17,6 @@ namespace driver {
 
 namespace toolchains {
 
-class LLVM_LIBRARY_VISIBILITY IRIXGCC : public Generic_ELF {
-public:
-  IRIXGCC(const Driver &D, const llvm::Triple &Triple,
-       const llvm::opt::ArgList &Args);
-
-  bool HasNativeLLVMSupport() const override;
-
-  void
-  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-                            llvm::opt::ArgStringList &CC1Args) const override;
-
-  std::string getDynamicLinker(const llvm::opt::ArgList &Args) const override;
-
-  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
-                             llvm::opt::ArgStringList &CC1Args,
-                             Action::OffloadKind DeviceOffloadKind) const override;
-
-  void addExtraOpts(llvm::opt::ArgStringList &CmdArgs) const override;
-
-  std::vector<std::string> ExtraOpts;
-
-protected:
-  Tool *buildAssembler() const override;
-  Tool *buildLinker() const override;
-
-  StringRef mABI;
-  bool mIsLLD;
-  bool mUseGNULinker;
-  bool mNoGCC;
-  ToolChain::RuntimeLibType mRuntimeLibType;
-};
-
 class LLVM_LIBRARY_VISIBILITY IRIX : public ToolChain {
 public:
   IRIX(const Driver &D, const llvm::Triple &Triple,

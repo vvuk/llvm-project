@@ -5,8 +5,7 @@ set(LLVM_TARGETS_TO_BUILD Mips CACHE STRING "")
 set(PACKAGE_VENDOR IRIX CACHE STRING "")
 
 set(LLVM_ENABLE_PROJECTS "clang;clang-tools-extra;lld;llvm" CACHE STRING "")
-###set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
-set(LLVM_ENABLE_RUNTIMES "libcxx;libcxxabi" CACHE STRING "")
+set(LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
 
 set(LLVM_ENABLE_BACKTRACES OFF CACHE BOOL "")
 if(NOT APPLE)
@@ -29,12 +28,9 @@ if(MSVC)
 endif()
 
 set(CLANG_DEFAULT_CXX_STDLIB libc++ CACHE STRING "")
-if(NOT APPLE)
-  set(CLANG_DEFAULT_LINKER lld CACHE STRING "")
-  set(CLANG_DEFAULT_OBJCOPY llvm-objcopy CACHE STRING "")
-endif()
-###set(CLANG_DEFAULT_RTLIB compiler-rt CACHE STRING "")
-set(CLANG_DEFAULT_RTLIB libgcc CACHE STRING "")
+set(CLANG_DEFAULT_LINKER lld CACHE STRING "")
+set(CLANG_DEFAULT_OBJCOPY llvm-objcopy CACHE STRING "")
+set(CLANG_DEFAULT_RTLIB compiler-rt CACHE STRING "")
 set(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
 set(CLANG_ENABLE_STATIC_ANALYZER OFF CACHE BOOL "")
 set(CLANG_PLUGIN_SUPPORT OFF CACHE BOOL "")
@@ -88,23 +84,19 @@ if(IRIX_ROOT)
     set(RUNTIMES_${target}-sgi-irix6.5_LIBUNWIND_USE_COMPILER_RT ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBUNWIND_HERMETIC_STATIC_LIBRARY ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBUNWIND_INSTALL_STATIC_LIBRARY OFF CACHE BOOL "")
-    ###set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
-    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_COMPILER_RT OFF CACHE BOOL "")
-    ###set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_LLVM_UNWINDER ON CACHE BOOL "")
-    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_LLVM_UNWINDER OFF CACHE BOOL "")
+    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
+    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_USE_LLVM_UNWINDER ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_ENABLE_STATIC_UNWINDER ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_HERMETIC_STATIC_LIBRARY ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_INSTALL_STATIC_LIBRARY OFF CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXXABI_STATICALLY_LINK_UNWINDER_IN_SHARED_LIBRARY OFF CACHE BOOL "")
-    ###set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_USE_COMPILER_RT ON CACHE BOOL "")
-    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_USE_COMPILER_RT OFF CACHE BOOL "")
+    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_USE_COMPILER_RT ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_ENABLE_STATIC_ABI_LIBRARY ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_HERMETIC_STATIC_LIBRARY ON CACHE BOOL "")
-    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_STATICALLY_LINK_ABI_IN_SHARED_LIBRARY OFF CACHE BOOL "")
+    set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_STATICALLY_LINK_ABI_IN_SHARED_LIBRARY ON CACHE BOOL "")
     set(RUNTIMES_${target}-sgi-irix6.5_LIBCXX_ABI_VERSION 2 CACHE STRING "")
     set(RUNTIMES_${target}-sgi-irix6.5_LLVM_ENABLE_ASSERTIONS ON CACHE BOOL "")
-    ###set(RUNTIMES_${target}-sgi-irix6.5_LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
-    set(RUNTIMES_${target}-sgi-irix6.5_LLVM_ENABLE_RUNTIMES "libcxx;libcxxabi" CACHE STRING "")
+    set(RUNTIMES_${target}-sgi-irix6.5_LLVM_ENABLE_RUNTIMES "compiler-rt;libcxx;libcxxabi;libunwind" CACHE STRING "")
 
     # Use .build-id link.
     list(APPEND RUNTIME_BUILD_ID_LINK "${target}-sgi-irix6.5")
@@ -157,7 +149,7 @@ set(LLVM_DISTRIBUTION_COMPONENTS
   clang-scan-deps
   clang-tidy
   clangd
-###  builtins
+  builtins
   runtimes
   ${LLVM_TOOLCHAIN_TOOLS}
   CACHE STRING "")

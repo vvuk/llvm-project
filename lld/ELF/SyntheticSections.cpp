@@ -1584,6 +1584,7 @@ int64_t DynamicReloc::computeAddend() const {
       return addend;
     }
     // fall through on IRIX
+    LLVM_FALLTHROUGH;
   case AddendOnlyWithTargetVA:
   case AgainstSymbolWithTargetVA:
     return InputSection::getRelocTargetVA(inputSec->file, type, addend,
