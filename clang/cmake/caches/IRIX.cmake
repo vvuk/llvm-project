@@ -80,6 +80,14 @@ foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
     set(RUNTIMES_${target}_LIBCXX_ENABLE_STATIC_ABI_LIBRARY ON CACHE BOOL "")
 endforeach()
 
+if(CMAKE_CROSSCOMPILING)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I=/usr/xg/include" CACHE STRING "")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I=/usr/xg/include" CACHE STRING "")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+endif()
+
 ##set(BOOTSTRAP_LLVM_ENABLE_LTO ON CACHE BOOL "")
 ##set(BOOTSTRAP_LLVM_ENABLE_LLD ON CACHE BOOL "")
 ##
