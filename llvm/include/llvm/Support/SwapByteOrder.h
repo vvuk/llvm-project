@@ -27,7 +27,10 @@
 #elif defined(_AIX)
 #include <sys/machine.h>
 #elif defined(__sgi)
-#include <endian.h>
+#undef BIG_ENDIAN
+#undef BYTE_ORDER
+#define BIG_ENDIAN 4321
+#define BYTE_ORDER BIG_ENDIAN
 #elif defined(__sun)
 /* Solaris provides _BIG_ENDIAN/_LITTLE_ENDIAN selector in sys/types.h */
 #include <sys/types.h>

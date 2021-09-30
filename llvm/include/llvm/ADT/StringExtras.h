@@ -501,6 +501,13 @@ public:
   }
 };
 
+// Missing on IRIX
+size_t llvm_strnlen(const char *s, size_t maxlen);
+
+#ifdef __sgi
+#define strnlen ::llvm::llvm_strnlen
+#endif
+
 } // end namespace llvm
 
 #endif // LLVM_ADT_STRINGEXTRAS_H

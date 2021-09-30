@@ -17,10 +17,6 @@
 
 #include <string.h> // for memcpy
 
-#ifdef __sgi
-#include <strnlen.h>
-#endif
-
 using namespace llvm;
 
 class MachODumper {

@@ -48,7 +48,10 @@
 extern char **environ;
 #endif
 #elif defined(__sgi)
+// sgi's procfs modifies pack inside the include file
+#pragma pack(push)
 #include <sys/procfs.h>
+#pragma pack(pop)
 #elif defined(__DragonFly__)
 #include <sys/mount.h>
 #elif defined(__MVS__)

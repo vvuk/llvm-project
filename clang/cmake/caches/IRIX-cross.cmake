@@ -1,133 +1,15 @@
 # This file sets up a CMakeCache for a IRIX cross build.
 
-set(CMAKE_CROSSCOMPILING ON CACHE BOOL "")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I=/usr/xg/include" CACHE STRING "")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I=/usr/xg/include" CACHE STRING "")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -L=/usr/xg/lib32 -lxg -lgen -lpthread" CACHE STRING "")
+
+include(${CMAKE_CURRENT_LIST_DIR}/IRIX.cmake)
 
 # Release by default
 set(CMAKE_BUILD_TYPE Release CACHE STRING "")
 # But with assertions
 set(LLVM_ENABLE_ASSERTIONS ON CACHE BOOL "")
 
-set(TARGET_TRIPLE "mipsn32-sgi-irix6.5" CACHE STRING "")
-set(LLVM_ENABLE_PROJECTS "clang;lld;libunwind;compiler-rt;libcxxabi;libcxx" CACHE STRING "")
-##set(LLVM_ENABLE_RUNTIMES "libunwind;compiler-rt;libcxxabi;libcxx" CACHE STRING "")
-s##et(LLVM_RUNTIME_TARGETS "mipsn32-sgi-irix6.5;mips64-sgi-irix6.5" CACHE STRING "")
-set(LLVM_DEFAULT_TARGET_TRIPLE "mipsn32-sgi-irix6.5" CACHE STRING "")
-set(LLVM_TARGETS_TO_BUILD Mips CACHE STRING "")
-set(LLVM_TARGET_ARCH Mips CACHE STRING "")
-set(PACKAGE_VENDOR IRIX CACHE STRING "")
-
-set(LLVM_ENABLE_BACKTRACES OFF CACHE BOOL "")
-# Don't need this, there's only one target
-###set(LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ON CACHE BOOL "")
-set(LLVM_ENABLE_TERMINFO OFF CACHE BOOL "")
-set(LLVM_ENABLE_UNWIND_TABLES OFF CACHE BOOL "")
-## TODO we have zilb
-###set(LLVM_ENABLE_ZLIB OFF CACHE BOOL "")
-## LTO doesn't work?
-###set(LLVM_ENABLE_LTO ON CACHE BOOL "")
-set(LLVM_ENABLE_LLD ON CACHE BOOL "")
-
-# do we want =32?
-## -DLLVM_LIBDIR_SUFFIX=64
-
-## Don't need this
-###set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER ON CACHE BOOL "")
-
-## extra options all disabled
-set(LLVM_INCLUDE_DOCS OFF CACHE BOOL "")
-set(LLVM_INCLUDE_TESTS OFF CACHE BOOL "")
-set(LLVM_INCLUDE_EXAMPLES OFF CACHE BOOL "")
-set(LLVM_INCLUDE_GO_TESTS OFF CACHE BOOL "")
-set(LLVM_INCLUDE_BENCHMARKS OFF CACHE BOOL "")
-
-set(CLANG_DEFAULT_CXX_STDLIB libc++ CACHE STRING "")
-set(CLANG_DEFAULT_LINKER lld CACHE STRING "")
-set(CLANG_DEFAULT_OBJCOPY llvm-objcopy CACHE STRING "")
-set(CLANG_DEFAULT_RTLIB compiler-rt CACHE STRING "")
-set(CLANG_DEFAULT_UNWINDLIB libunwind CACHE STRING "")
-
-set(CLANG_ENABLE_ARCMT OFF CACHE BOOL "")
-set(CLANG_ENABLE_STATIC_ANALYZER OFF CACHE BOOL "")
-set(CLANG_PLUGIN_SUPPORT OFF CACHE BOOL "")
-
-set(COMPILER_RT_BUILD_BUILTINS ON CACHE BOOL "")
-set(COMPILER_RT_BUILD_CRT ON CACHE BOOL "")
-set(COMPILER_RT_CRT_USE_EH_FRAME_REGISTRY ON CACHE BOOL "")
-
-# disable stuff that doesn't work (some of these might?)
-set(COMPILER_RT_BUILD_SANITIZERS OFF CACHE BOOL "")
-set(COMPILER_RT_BUILD_XRAY OFF CACHE BOOL "")
-set(COMPILER_RT_BUILD_LIBFUZZER OFF CACHE BOOL "")
-set(COMPILER_RT_BUILD_PROFILE OFF CACHE BOOL "")
-set(COMPILER_RT_BUILD_MEMPROF OFF CACHE BOOL "")
-set(COMPILER_RT_BUILD_XRAY_NO_PREINIT OFF CACHE BOOL "")
-
-# Note -- when this gets changed ot OFF, the logic in compiler-rt
-# remaps mips to mips32r2 and such, will need to be fixed
-#set(COMPILER_RT_DEFAULT_TARGET_ARCH mips CACHE STRING "")
-#set(COMPILER_RT_DEFAULT_TARGET_TRIPLE "mipsn32-sgi-irix6.5" STRING BOOL "")
-#set(COMPILER_RT_DEFAULT_TARGET_ONLY ON CACHE BOOL "")
-
-set(LIBUNWIND_ENABLE_SHARED ON CACHE BOOL "")
-set(LIBUNWIND_INSTALL_LIBRARY ON CACHE BOOL "")
-set(LIBUNWIND_USE_COMPILER_RT ON CACHE BOOL "")
-set(LIBUNWIND_LINK_FLAGS "-nodefaultlibs" CACHE STRING "")
-
-set(LIBCXXABI_ENABLE_SHARED ON CACHE BOOL "")
-set(LIBCXXABI_ENABLE_STATIC_UNWINDER ON CACHE BOOL "")
-set(LIBCXXABI_INSTALL_LIBRARY ON CACHE BOOL "")
-set(LIBCXXABI_USE_COMPILER_RT ON CACHE BOOL "")
-set(LIBCXXABI_USE_LLVM_UNWINDER ON CACHE BOOL "")
-
-set(LIBCXX_ENABLE_SHARED ON CACHE BOOL "")
-set(LIBCXX_ENABLE_STATIC_ABI_LIBRARY ON CACHE BOOL "")
-# This is an annoying hack
-set(LIBCXX_CMAKE_ARGS -DLIBCXX_BUILD_FOR_IRIX=ON CACHE STRING "")
-
-if(UNIX)
-  set(BOOTSTRAP_CMAKE_SHARED_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
-  set(BOOTSTRAP_CMAKE_MODULE_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
-  set(BOOTSTRAP_CMAKE_EXE_LINKER_FLAGS "-ldl -lpthread" CACHE STRING "")
-endif()
-
-set(LIBCXXABI_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
-set(LIBCXXABI_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
-
-set(LIBCXX_COMPILE_FLAGS "-I=/usr/xg/include" CACHE STRING "")
-set(LIBCXX_LINK_FLAGS "-L=/usr/xg/lib32 -lxg" CACHE STRING "")
-
-##set(CLANG_BOOTSTRAP_TARGETS
-##  check-all
-##  check-llvm
-##  check-clang
-##  check-lld
-##  llvm-config
-##  test-suite
-##  test-depends
-##  llvm-test-depends
-##  clang-test-depends
-##  lld-test-depends
-##  distribution
-##  install-distribution
-##  install-distribution-stripped
-##  install-distribution-toolchain
-##  clang CACHE STRING "")
-##
-##get_cmake_property(variableNames VARIABLES)
-##foreach(variableName ${variableNames})
-##  if(variableName MATCHES "^STAGE2_")
-##    string(REPLACE "STAGE2_" "" new_name ${variableName})
-##    list(APPEND EXTRA_ARGS "-D${new_name}=${${variableName}}")
-##  endif()
-##endforeach()
-##
-### Setup the bootstrap build.
-##set(CLANG_ENABLE_BOOTSTRAP ON CACHE BOOL "")
-##set(CLANG_BOOTSTRAP_EXTRA_DEPS
-##  builtins
-##  runtimes
-##  CACHE STRING "")
-##set(CLANG_BOOTSTRAP_CMAKE_ARGS
-##  ${EXTRA_ARGS}
-##  -C ${CMAKE_CURRENT_LIST_DIR}/IRIX-stage2.cmake
-##  CACHE STRING "")

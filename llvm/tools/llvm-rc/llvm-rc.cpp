@@ -538,8 +538,10 @@ RcOptions parseRcOptions(ArrayRef<const char *> ArgsArr,
   Opts.Params.NoInclude = InputArgs.hasArg(OPT_noinclude);
   if (Opts.Params.NoInclude) {
     // Clear the INLCUDE variable for the external preprocessor
-#ifdef _WIN32
+#if defined(_WIN32)
     ::_putenv("INCLUDE=");
+#elif defined(__sgi)
+    ::putenv("INCLUDE=");
 #else
     ::unsetenv("INCLUDE");
 #endif

@@ -20,10 +20,6 @@
 #include <string>
 #include <vector>
 
-#ifdef __sgi
-#include <strnlen.h>
-#endif
-
 namespace llvm {
 namespace objcopy {
 namespace macho {

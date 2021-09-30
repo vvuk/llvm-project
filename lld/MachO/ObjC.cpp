@@ -15,10 +15,6 @@
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Bitcode/BitcodeReader.h"
 
-#ifdef __sgi
-#include <strnlen.h>
-#endif
-
 using namespace llvm;
 using namespace llvm::MachO;
 using namespace lld;

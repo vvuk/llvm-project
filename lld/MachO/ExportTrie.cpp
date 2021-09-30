@@ -43,10 +43,6 @@
 #include "llvm/BinaryFormat/MachO.h"
 #include "llvm/Support/LEB128.h"
 
-#ifdef __sgi
-#include <strnlen.h>
-#endif
-
 using namespace llvm;
 using namespace lld;
 using namespace lld::macho;

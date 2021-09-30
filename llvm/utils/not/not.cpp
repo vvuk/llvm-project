@@ -15,11 +15,6 @@
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
 
-#ifdef __sgi
-extern "C" int setenv(const char *name, const char *value, int rewrite);
-extern "C"  void unsetenv(const char *name);
-#endif
-
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -42,6 +37,9 @@ int main(int argc, const char **argv) {
 #ifdef _WIN32
     SetEnvironmentVariableA("LLVM_DISABLE_CRASH_REPORT", "1");
     SetEnvironmentVariableA("LLVM_DISABLE_SYMBOLIZATION", "1");
+#elif defined(__sgi)
+    putenv("LLVM_DISABLE_CRASH_REPORT=1");
+    putenv("LLVM_DISABLE_SYMBOLIZATION=1");
 #else
     setenv("LLVM_DISABLE_CRASH_REPORT", "1", 0);
     setenv("LLVM_DISABLE_SYMBOLIZATION", "1", 0);
