@@ -14,6 +14,11 @@ if(NOT MSVC)
     )
 endif()
 
+# FIXME IRIX
+if (CMAKE_CROSSCOMPILING)
+  target_link_libraries(c-index-test PRIVATE gen)
+endif()
+
 if (LLVM_BUILD_STATIC)
   target_link_libraries(c-index-test
     PRIVATE
