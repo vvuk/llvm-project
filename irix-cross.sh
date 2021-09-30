@@ -46,14 +46,15 @@ RELDIR=$(dirname $0)
 # set -x in subshell to trace the cmake invocation
 (set -x ; \
 cmake -G Ninja \
-    -DCMAKE_CROSSCOMPILING=True \
-    -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
+    -DCMAKE_SYSTEM_NAME=Linux \
+    -C ${RELDIR}/clang/cmake/caches/IRIX-cross.cmake \
     -DCMAKE_INSTALL_PREFIX=/usr/sgug/llvm \
     -DCMAKE_C_COMPILER="${CROSS_CC}" \
     -DCMAKE_CXX_COMPILER="${CROSS_CXX}" \
     -DLLVM_TABLEGEN=${NDIR}/bin/llvm-tblgen \
+    -DLLVM_CONFIG_PATH=${NDIR}/bin/llvm-config \
     -DCLANG_TABLEGEN=${NDIR}/bin/clang-tblgen \
-    -DDEFAULT_SYSROOT=${ROOT} \
+    -DCLANG_TOOLING_BUILD_AST_INTROSPECTION=OFF \
     -DCLANG_DEFAULT_LINKER=lld \
     $* \
     ${RELDIR}/llvm
