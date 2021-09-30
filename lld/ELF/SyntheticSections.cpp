@@ -1107,7 +1107,9 @@ void MipsGotSection::writeTo(uint8_t *buf) {
       write(p.second, p.first.first, p.first.second);
     // Write VA to the primary GOT only. For secondary GOTs that
     // will be done by REL32 dynamic relocations.
-    if (&g == &gots.front())
+    // Except on IRIX, we need a fully resolved addend written in all GOTs, despite
+    // the dynamic REL32 relocations.
+    if (&g == &gots.front() || config->osabi == ELFOSABI_IRIX)
       for (const std::pair<Symbol *, size_t> &p : g.global)
         write(p.second, p.first, 0);
     for (const std::pair<Symbol *, size_t> &p : g.relocs)
