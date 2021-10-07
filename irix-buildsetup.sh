@@ -19,10 +19,10 @@ if [ ! -f ${ROOT}/lib32/libc.so.1 ] ; then
     exit 1
 fi
 
-if [ ! -f ${ROOT}/usr/xg/include/setenv.h ] ; then
-    echo "libxg stuff not found, run make install in libxg"
-    exit 1
-fi 
+#if [ ! -f ${ROOT}/usr/xg/include/setenv.h ] ; then
+#    echo "libxg stuff not found, run make install in libxg"
+#    exit 1
+#fi 
 
 #if [[ ! -f "${ROOT}/usr/lib/clang/mips64-sgi-irix6.5/gcc-irix-crti.o" || ! -f "lib/clang/${LLVMVER}.0.0/lib/mips64-sgi-irix6.5/gcc-irix-crtn.o" ]] ; then
 #    echo "${ROOT}/usr/lib/clang/mips64-sgi-irix6.5 needs to be populated with:"
@@ -46,7 +46,6 @@ cmake -G Ninja \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCLANG_DEFAULT_LINKER=lld \
     -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
-    -DGCC_INSTALL_PREFIX=${ROOT}/usr/sgug \
-    -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
-    ${RELDIR}/llvm \
+    $* \
+    ${RELDIR}/llvm
 )

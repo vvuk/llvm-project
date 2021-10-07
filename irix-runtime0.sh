@@ -6,7 +6,8 @@ set -e
 # FFS
 LLVMV=14.0.0
 
-STAGE0=../build-full
+#STAGE0=../build-full
+STAGE0=../../llvm/build-full
 CC=$(readlink -f $STAGE0/bin/clang)
 CXX=$(readlink -f $STAGE0/bin/clang++)
 
@@ -15,6 +16,7 @@ rm -rf ${DEST}
 mkdir -p ${DEST}
 
 cmake \
+    -DLLVM_LIBDIR_SUFFIX=32 \
 	-DCMAKE_C_COMPILER=$CC \
 	-DCMAKE_C_COMPILER_TARGET=$target \
 	-DCMAKE_C_COMPILER_WORKS=YES \
@@ -35,11 +37,13 @@ cmake \
 	-DCOMPILER_RT_BUILD_PROFILE=OFF \
 	-DCOMPILER_RT_BUILD_MEMPROF=OFF \
 	-DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_C_COMPILER_WORKS=YES \
+    -DCMAKE_CXX_COMPILER_WORKS=YES \
 	-DCAN_TARGET_mips64=YES \
 	-DCAN_TARGET_mipsn32=YES \
 	-GNinja \
 	../runtimes
 ninja
 
-cp -r compiler-rt/lib/mips64* $DEST
+#cp -r compiler-rt/lib/mips64* $DEST
 

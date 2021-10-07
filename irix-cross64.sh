@@ -40,6 +40,12 @@ cmake -G Ninja \
     -DCLANG_TABLEGEN=${NDIR}/bin/clang-tblgen \
     -DCLANG_TOOLING_BUILD_AST_INTROSPECTION=OFF \
     -DCLANG_DEFAULT_LINKER=lld \
+    -DLLVM_DEFAULT_TARGET_TRIPLE=mips64-sgi-irix6.5 \
+    -DCMAKE_C_FLAGS="--target=mips64-sgi-irix6.5" \
+    -DCMAKE_CXX_FLAGS="--target=mips64-sgi-irix6.5" \
+    -DCMAKE_EXE_LINKER_FLAGS="--target=mips64-sgi-irix6.5" \
+    -DCMAKE_MODULE_LINKER_FLAGS="--target=mips64-sgi-irix6.5" \
+    -DCMAKE_SHARED_LINKER_FLAGS="--target=mips64-sgi-irix6.5" \
     $* \
     ${RELDIR}/llvm
 )

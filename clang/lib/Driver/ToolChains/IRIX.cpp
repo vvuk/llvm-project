@@ -24,13 +24,22 @@ using namespace llvm::opt;
 
 using tools::addPathIfExists;
 
+// LLVM is going to be built/installed into either /usr/llvm or /usr/sgug
+// We need to search:
+//    /lib{,32,64}
+//    /usr/lib{,32,64}
+//    /usr/llvm{,32,64} (or /usr/sgug?)
+//
+// getInstalledDir() == clang executable location
+// 
 
 IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
     : ToolChain(D, Triple, Args)
 {
-  getProgramPaths().push_back(getDriver().getInstalledDir());
+  // prefer things next to the driver, then the installed dir
+  getProgramPaths().push_back(D.Dir);
   if (getDriver().getInstalledDir() != D.Dir)
-    getProgramPaths().push_back(D.Dir);
+    getProgramPaths().push_back(getDriver().getInstalledDir());
 
   StringRef cpu;
   StringRef abi;
@@ -39,10 +48,6 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   mABI = abi.str();
 
   std::string SysRoot = computeSysRoot();
-
-  getProgramPaths().push_back(getDriver().getInstalledDir());
-  if (getDriver().getInstalledDir() != getDriver().Dir)
-    getProgramPaths().push_back(getDriver().Dir);
 
   // Find out the library suffix based on the ABI.
   LibSuffix = tools::mips::getMipsABILibSuffix(Args, Triple);
@@ -58,13 +63,20 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // string, so that's not cool).  Push the real one in front.  Might be the same.
   getLibraryPaths().insert(getLibraryPaths().begin(), getRuntimePath());
 
+  // LLVM's own dirs
+  SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
+  llvm::sys::path::append(P, "lib" + LibSuffix);
+  addPathIfExists(D, P, getFilePaths());
+
   // Similar to the logic for GCC above, if we currently running Clang inside
   // of the requested system root, add its parent library paths to
   // those searched.
   // FIXME: It's not clear whether we should use the driver's installed
   // directory ('Dir' below) or the ResourceDir.
   if (StringRef(D.Dir).startswith(SysRoot)) {
-    addPathIfExists(D, D.Dir + "/../lib" + LibSuffix, getFilePaths());
+    SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
+    llvm::sys::path::append(P, "lib" + LibSuffix);
+    addPathIfExists(D, P, getFilePaths());
   }
 }
 
@@ -109,28 +121,20 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
   if (DriverArgs.hasArg(clang::driver::options::OPT_nostdinc))
     return;
 
-  std::string ExtraStuffPath = D.SysRoot + "/usr/lib/clang/" + getTriple().str();
   //AddMultilibIncludeArgs(DriverArgs, CC1Args);
 
+  SmallString<128> P;
+
   if (!DriverArgs.hasArg(options::OPT_nobuiltininc)) {
-    SmallString<128> P(D.ResourceDir);
-    llvm::sys::path::append(P, "include");
-    addSystemInclude(DriverArgs, CC1Args, P);
+    addSystemInclude(DriverArgs, CC1Args, D.ResourceDir + "/include");
   }
 
   if (DriverArgs.hasArg(options::OPT_nostdlibinc))
     return;
 
-  // this is the fixincludes output -- actual replacements for the system headers
-  addSystemInclude(DriverArgs, CC1Args, ExtraStuffPath + "/include-fixed");
-  // these are headers that interpose themselves before/after the system ones
-  addSystemInclude(DriverArgs, CC1Args, ExtraStuffPath + "/include");
-  // these are the actual system headers
-  addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/include");
-
-  // Check for configure-time C include directories.
+  // Check for configure-time C include directories; use them if present
   StringRef CIncludeDirs(C_INCLUDE_DIRS);
-  if (CIncludeDirs != "") {
+  if (!CIncludeDirs.empty()) {
     SmallVector<StringRef, 5> Dirs;
     CIncludeDirs.split(Dirs, ":");
     for (StringRef Dir : Dirs) {
@@ -138,14 +142,15 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
           llvm::sys::path::is_absolute(Dir) ? "" : StringRef(D.SysRoot);
       addExternCSystemInclude(DriverArgs, CC1Args, Prefix + Dir);
     }
-    return;
-  }
+  } else {
+    // fixincludes output (global sysroot location)
+    addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/lib/clang/include-fixed");
 
-  // TODO IRIX do we need ExternCSystemInclude for /usr/include?
-  if (!D.SysRoot.empty()) {
-    SmallString<128> P(D.SysRoot);
-    llvm::sys::path::append(P, "usr", "include");
-    addExternCSystemInclude(DriverArgs, CC1Args, P.str());
+    // fixincludes output -- replacements or overrides for system headers.
+    addSystemInclude(DriverArgs, CC1Args, D.ResourceDir + "/include-fixed");
+
+    // these are the actual system headers
+    addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/include");
   }
 }
 
@@ -159,14 +164,14 @@ void IRIX::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
   case ToolChain::CST_Libcxx: {
     SmallString<128> P;
 
-    P = getDriver().Dir;
-    llvm::sys::path::append(P, "..", "include");
+    P = llvm::sys::path::parent_path(getDriver().Dir);
+    llvm::sys::path::append(P, "include");
     llvm::sys::path::append(P, getTripleString());
     llvm::sys::path::append(P, "c++", "v1");
     addSystemInclude(DriverArgs, CC1Args, P.str());
 
-    P = getDriver().Dir;
-    llvm::sys::path::append(P, "..", "include", "c++", "v1");
+    P = llvm::sys::path::parent_path(getDriver().Dir);
+    llvm::sys::path::append(P, "include", "c++", "v1");
     addSystemInclude(DriverArgs, CC1Args, P.str());
     break;
   }
@@ -187,6 +192,7 @@ void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
     llvm_unreachable("invalid stdlib name");
   }
 }
+
 
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                    const InputInfo &Output,
@@ -265,12 +271,14 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (!Args.hasArg(options::OPT_shared))
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt1.o")));
 
-    // from compiler-rt or gcc
-    std::string crtbegin = ToolChain.getCompilerRT(Args, "crtbegin", ToolChain::FT_Object);
-    if (ToolChain.getVFS().exists(crtbegin))
-      CmdArgs.push_back(Args.MakeArgString(crtbegin));
-    else if (!getenv("CLANG_NO_GCC_CRT"))
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("gcc-irix-crti.o")));
+    // compiler-rt CRT
+    if (!Args.hasArg(options::OPT_static))
+    {
+      SmallString<128> crtbegin("clang_rt.crtbegin");
+      crtbegin += ToolChain.GetLibSuffix();
+      crtbegin += ".o";
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin.c_str())));
+    }
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
@@ -282,6 +290,8 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddAllArgs(CmdArgs, options::OPT_t);
   Args.AddAllArgs(CmdArgs, options::OPT_Z_Flag);
   Args.AddAllArgs(CmdArgs, options::OPT_r);
+
+  ToolChain.AddFilePathLibArgs(Args, CmdArgs);
 
   if (D.isUsingLTO()) {
     assert(!Inputs.empty() && "Must have at least one input.");
@@ -337,15 +347,17 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins"));
 
   if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
-    // from compiler-rt or gcc
-    std::string crtend = ToolChain.getCompilerRT(Args, "crtend", ToolChain::FT_Object);
-    if (ToolChain.getVFS().exists(crtend))
-      CmdArgs.push_back(Args.MakeArgString(crtend));
-    else if (!getenv("CLANG_NO_GCC_CRT"))
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("gcc-irix-crtn.o")));
+    // compiler-rt CRT
+    if (!Args.hasArg(options::OPT_static)) {
+      SmallString<128> crtend("clang_rt.crtend");
+      crtend += ToolChain.GetLibSuffix();
+      crtend += ".o";
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtend.c_str())));
+    }
 
     // from IRIX
-    CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
+    if (!Args.hasArg(options::OPT_shared))
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crtn.o")));
   }
 
   // Always export these dynamically and preemptible; rld depends on them existing and having GOT

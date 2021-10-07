@@ -66,6 +66,7 @@ public:
   std::string getDynamicLinker(const llvm::opt::ArgList &Args) const;
 
   StringRef GetABI() const { return mABI; }
+  StringRef GetLibSuffix() const { return LibSuffix; }
 
 protected:
   Tool *buildLinker() const override;
