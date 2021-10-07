@@ -3872,22 +3872,10 @@ MipsSETargetLowering::markLibCallAttributes(MachineFunction *MF, unsigned CC,
   if (!Subtarget.isABI_N32())
     return;
 
-  // pull this out of.. Subtarget?
-  unsigned ParamRegs = 8;
-
-  // Mark the first N int arguments as being in registers & being sext
-  // TODO this calculation for ParamRegs is not correct.  But worst case
-  // we'll sign extend more int args, which should be fine?
   for (unsigned Idx = 0; Idx < Args.size(); Idx++) {
     Type *T = Args[Idx].Ty;
     if (T->isIntOrPtrTy()) {
-      if (ParamRegs == 0)
-        return;
-      // Sign extend integers (only), pointers should already be properly
-      // sign extended before getting here.
-      if (T->isIntegerTy())
-        Args[Idx].IsSExt = true;
-      ParamRegs--;
+      Args[Idx].IsSExt = true;
     }
   }
 }
