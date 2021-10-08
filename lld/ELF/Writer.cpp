@@ -583,8 +583,8 @@ template <class ELFT> void elf::createSyntheticSections() {
 template <class ELFT> void Writer<ELFT>::run() {
   copyLocalSymbols();
 
-  // Maybe adds section symbols if needed (copyRelocs) or for IRIX
-  addSectionSymbols();
+  if (config->copyRelocs || config->osabi == ELFOSABI_IRIX)
+    addSectionSymbols();
 
   // Now that we have a complete set of output sections. This function
   // completes section contents. For example, we need to add strings
@@ -795,10 +795,6 @@ template <class ELFT> void Writer<ELFT>::copyLocalSymbols() {
 // don't create a section symbol for that section.
 template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
   const bool isIRIX = config->osabi == ELFOSABI_IRIX;
-  // we don't need section symbols if no copyRelocs and not irix
-  if (!config->copyRelocs && !isIRIX)
-    return;
-
   const bool addToDynSymTab = isIRIX;
   const bool addToSymTab = config->copyRelocs;
 
@@ -1000,12 +996,11 @@ static unsigned getSectionRank(const OutputSection *sec) {
   bool isWrite = sec->flags & SHF_WRITE;
 
   if (isExec) {
-    if (isWrite) {
+    if (isWrite)
       rank |= RF_EXEC_WRITE;
-    } else {
+    else
       rank |= RF_EXEC;
-      rank = 0;
-    }
+    // TODO IRIX FIXME rank = 0;
   } else if (isWrite) {
     rank |= RF_WRITE;
   } else if (sec->type == SHT_PROGBITS) {
@@ -1023,6 +1018,7 @@ static unsigned getSectionRank(const OutputSection *sec) {
   // waste more bytes due to 2 alignment places.
   if (!isRelroSection(sec))
     rank |= RF_NOT_RELRO;
+
   // If we got here we know that both A and B are in the same PT_LOAD.
 
   // The TLS initialization block needs to be a single contiguous block in a R/W
@@ -1094,7 +1090,7 @@ void PhdrEntry::add(OutputSection *sec) {
   if (!firstSec)
     firstSec = sec;
   p_align = std::max(p_align, sec->alignment);
-  if (p_type == PT_LOAD) 
+  if (p_type == PT_LOAD)
     sec->ptLoad = this;
 }
 
@@ -2062,7 +2058,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
       for (Symbol *sym : file->requiredSymbols)
         if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional()) {
           // magic symbol from IRIX libc that rld fills in, but we don't want to define it
-	  // TODO IRIX figure out a better way of handling this; just define it to 0?
+       	  // TODO IRIX figure out a better way of handling this; just define it to 0?
           if (config->osabi == ELFOSABI_IRIX && sym->getName() == "_rld_new_interface")
             continue;
           diagnose(toString(file) + ": undefined reference to " +
@@ -2117,7 +2113,7 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
   // Now that we have the final list, create a list of all the
   // OutputSections for convenience.
   for (BaseCommand *base : script->sectionCommands)
-    if (auto *sec = dyn_cast<OutputSection>(base)) 
+    if (auto *sec = dyn_cast<OutputSection>(base))
       outputSections.push_back(sec);
 
   // Prefer command line supplied address over other constraints.
@@ -2368,17 +2364,6 @@ template <class ELFT>
 std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   std::vector<PhdrEntry *> ret;
   auto addHdr = [&](unsigned type, unsigned flags) -> PhdrEntry * {
-    //this was a gross hack I was using to ensure PF_X segments came first
-    /*if (type == PT_LOAD && firstLoadPhdrNo == -1)
-      firstLoadPhdrNo = ret.size();
-
-    if (flags & PT_LOAD && 
-            (firstLoadPhdrNo != -1 && firstLoadPhdrNo != ret.size())) {
-      auto index = ret.begin();
-      advance(index, firstLoadPhdrNo);
-      ret.insert(index, make<PhdrEntry>(type, flags));
-      return ret.at(firstLoadPhdrNo);
-    }*/
     ret.push_back(make<PhdrEntry>(type, flags));
     return ret.back();
   };
@@ -2387,9 +2372,13 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   bool isMain = partNo == 1;
 
   // Add the first PT_LOAD segment for regular output sections.
+  uint64_t flags = computeFlags(PF_R);
   // Make sure it's executable because it's going to have both the regular
   // elfHeader/programHeaders, and also the executable sections
-  uint64_t flags = computeFlags(PF_R | PF_X);
+  // TODO IRIX FIXME check if this is necessary
+  if (config->elfosabi == ELFOSABI_IRIX)
+    flags = computeFlags(PF_R | PF_X);
+
   PhdrEntry *load = nullptr;
 
   // nmagic or omagic output does not have PT_PHDR, PT_INTERP, or the readonly
@@ -2468,8 +2457,8 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
     if (!(load && newFlags == flags && sec != relroEnd &&
           sec->memRegion == load->firstSec->memRegion &&
           (sameLMARegion || load->lastSec == Out::programHeaders))) {
-          load = addHdr(PT_LOAD, newFlags);
-          flags = newFlags;
+      load = addHdr(PT_LOAD, newFlags);
+      flags = newFlags;
     }
 
     load->add(sec);
@@ -2628,7 +2617,7 @@ template <class ELFT> void Writer<ELFT>::fixSectionAlignments() {
 static uint64_t computeFileOffset(OutputSection *os, uint64_t off) {
   // The first section in a PT_LOAD has to have congruent offset and address
   // modulo the maximum page size.
-  if (os->ptLoad && os->ptLoad->firstSec == os) 
+  if (os->ptLoad && os->ptLoad->firstSec == os)
     return alignTo(off, os->ptLoad->p_align, os->addr);
 
   // File offsets are not significant for .bss sections other than the first one
