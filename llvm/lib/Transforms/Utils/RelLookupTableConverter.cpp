@@ -112,7 +112,7 @@ static GlobalVariable *createRelLookupTable(Function &Func,
     Constant *Target = llvm::ConstantExpr::getPtrToInt(Element, IntPtrTy);
     Constant *Sub = llvm::ConstantExpr::getSub(Target, Base);
     Constant *RelOffset =
-        llvm::ConstantExpr::getTrunc(Sub, Type::getInt32Ty(M.getContext()));
+        llvm::ConstantExpr::getTruncOrBitCast(Sub, Type::getInt32Ty(M.getContext()));
     RelLookupTableContents[Idx++] = RelOffset;
   }
 
