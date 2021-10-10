@@ -574,6 +574,64 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
   });
 }
 
+void OutputSection::precomputeDynRelValues(uint8_t *bufStart) {
+  assert(config->osabi == ELFOSABI_IRIX);
+  assert(type == SHT_REL || type == SHT_RELA);
+  std::vector<InputSection *> sections = getInputSections(this);
+  const bool dump_relocs = getenv("DUMP_RELOCS") != nullptr;
+  parallelForEachN(0, sections.size(), [&](size_t i) {
+    const auto *sec = dyn_cast<RelocationBaseSection>(sections[i]);
+    if (!sec)
+      return;
+    for (const DynamicReloc &rel : sec->relocs) {
+      const OutputSection *relOsec = rel.inputSec->getOutputSection();
+      assert(relOsec != nullptr && "missing output section for relocation");
+      if (relOsec->type == SHT_NOBITS)
+        continue;
+      uint64_t relocLoc = relOsec->offset + rel.inputSec->getOffset(rel.offsetInSec);
+      uint8_t *relocTarget = bufStart + relocLoc;
+
+      // if it's not R_MIPS_REL32, abort
+      if (rel.type != R_MIPS_REL32 && rel.type != (R_MIPS_64 << 8 | R_MIPS_REL32))
+        internalLinkerError(
+            getErrorLocation(relocTarget),
+            "expected R_MIPS_REL32 relocation at offset 0x" + utohexstr(rel.getOffset()) +
+              (rel.sym ? " against symbol " + toString(*rel.sym) : "")  +
+              ", instead got " + toString(rel.type));
+
+      // this only matters against defined symbols, i.e. where we know the location in _this_
+      // output image
+      if (rel.sym && rel.sym->isDefined()) {
+        // we know it's R_MIPS_REL32, so the computation is easy
+        int64_t addend = read32(relocTarget);
+
+        if (rel.dynRelKind() != DynamicReloc::AgainstSymbol) {
+          if (dump_relocs)
+            printf("[@ 0x%08x] Skipping R_MIPS_REL32%s: 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
+              (uint32_t)rel.getOffset(),
+              (rel.type & R_MIPS_64) == R_MIPS_64 ? "[64!]" : "",
+              (uint32_t)addend,
+              rel.sym->type, rel.sym->symbolKind, rel.sym->stOther, rel.sym->exportDynamic, rel.sym->inDynamicList, rel.sym->isPreemptible,
+              rel.dynRelKind(),
+              toString(*rel.sym).c_str());
+          continue;
+        }
+
+        int64_t result = rel.sym->getVA(addend);
+        if (dump_relocs)
+          printf("[@ 0x%08x] Precomputed R_MIPS_REL32%s: 0x%08x -> 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
+            (uint32_t)rel.getOffset(),
+            (rel.type & R_MIPS_64) == R_MIPS_64 ? "[64!]" : "",
+            (uint32_t)addend, (uint32_t)result,
+            rel.sym->type, rel.sym->symbolKind, rel.sym->stOther, rel.sym->exportDynamic, rel.sym->inDynamicList, rel.sym->isPreemptible,
+            rel.dynRelKind(),
+            toString(*rel.sym).c_str());
+        write32(relocTarget, result);
+      }
+    }
+  });
+}
+
 template void OutputSection::writeHeaderTo<ELF32LE>(ELF32LE::Shdr *Shdr);
 template void OutputSection::writeHeaderTo<ELF32BE>(ELF32BE::Shdr *Shdr);
 template void OutputSection::writeHeaderTo<ELF64LE>(ELF64LE::Shdr *Shdr);

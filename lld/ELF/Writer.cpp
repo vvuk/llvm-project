@@ -828,8 +828,12 @@ template <class ELFT> void Writer<ELFT>::addSectionSymbols() {
     // For IRIX, we need to add these into dynsym and they need to have an actual
     // name to work around a rld bug so that rld can disambiguate.  Yes, LOCAL
     // symbols go in dynsym on IRIX.
-    auto *sym =
-        make<Defined>(isec->file, isIRIX ? isec->name : "", STB_LOCAL, /*stOther=*/0, STT_SECTION,
+    Defined *sym;
+    if (isIRIX)
+        sym = make<Defined>(isec->file, isec->getOutputSection()->name, STB_LOCAL, /*stOther=*/0, STT_SECTION,
+                      /*value=*/0, /*size=*/isec->getSize(), isec->getOutputSection());
+    else
+        sym = make<Defined>(isec->file, "", STB_LOCAL, /*stOther=*/0, STT_SECTION,
                       /*value=*/0, /*size=*/0, isec->getOutputSection());
     if (addToDynSymTab)
       mainPart->dynSymTab->addSymbol(sym);
@@ -1000,7 +1004,7 @@ static unsigned getSectionRank(const OutputSection *sec) {
       rank |= RF_EXEC_WRITE;
     else
       rank |= RF_EXEC;
-    // TODO IRIX FIXME rank = 0;
+    // TODO IRIX FIXME: this was rank = 0; why
   } else if (isWrite) {
     rank |= RF_WRITE;
   } else if (sec->type == SHT_PROGBITS) {
@@ -2376,7 +2380,7 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   // Make sure it's executable because it's going to have both the regular
   // elfHeader/programHeaders, and also the executable sections
   // TODO IRIX FIXME check if this is necessary
-  if (config->elfosabi == ELFOSABI_IRIX)
+  if (config->osabi == ELFOSABI_IRIX)
     flags = computeFlags(PF_R | PF_X);
 
   PhdrEntry *load = nullptr;
@@ -3011,6 +3015,15 @@ template <class ELFT> void Writer<ELFT>::writeSections() {
     for (OutputSection *sec : outputSections)
       if (sec->type == SHT_REL || sec->type == SHT_RELA)
         sec->checkDynRelAddends(Out::bufferStart);
+  }
+
+  // On IRIX, also update MIPS_REL32 relocations to have the full relocated value.
+  // If an image is loaded at its natural load address, IRIX rld expects relocations
+  // to already have the final computed value at their destination.
+  if (config->osabi == ELFOSABI_IRIX) {
+    for (OutputSection *sec : outputSections)
+      if (sec->type == SHT_REL || sec->type == SHT_RELA)
+        sec->precomputeDynRelValues(Out::bufferStart);
   }
 }
 

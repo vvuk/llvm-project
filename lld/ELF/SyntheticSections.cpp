@@ -345,7 +345,7 @@ BssSection::BssSection(StringRef name, uint64_t size, uint32_t alignment)
 }
 
 EhFrameSection::EhFrameSection()
-    : SyntheticSection(SHF_ALLOC, SHT_PROGBITS, 1, ".eh_frame") {}
+    : SyntheticSection(SHF_ALLOC | (config->osabi == ELFOSABI_IRIX ? SHF_WRITE : 0), SHT_PROGBITS, 1, ".eh_frame") {}
 
 // Search for an existing CIE record or create a new one.
 // CIE records from input object files are uniquified by their contents
@@ -1598,6 +1598,16 @@ uint32_t DynamicReloc::getSymIndex(SymbolTableBaseSection *symTab) const {
   return 0;
 }
 
+void DynamicReloc::forceAgainstSymbol(Symbol *newSym) {
+  assert(kind == DynamicReloc::AddendOnlyWithTargetVA);
+  assert(sym != nullptr);
+
+  int64_t newAddend = computeAddend() - newSym->getVA();
+  sym = newSym;
+  addend = newAddend;
+  kind = AgainstSymbolWithTargetVA;
+}
+
 RelocationBaseSection::RelocationBaseSection(StringRef name, uint32_t type,
                                              int32_t dynamicTag,
                                              int32_t sizeDynamicTag)
@@ -1687,13 +1697,10 @@ template <class ELFT>
 static void encodeDynamicReloc(SymbolTableBaseSection *symTab,
                                typename ELFT::Rela *p,
                                const DynamicReloc &rel) {
+  uint32_t symIndex = rel.getSymIndex(symTab);
   if (config->isRela)
     p->r_addend = rel.computeAddend();
   p->r_offset = rel.getOffset();
-  uint32_t symIndex = rel.getSymIndex(symTab);
-  if (config->osabi == ELFOSABI_IRIX && symIndex == 0 && rel.sym) {
-    symIndex = mainPart->dynSymTab->getSectionSymbolIndex(rel.sym->getOutputSection());
-  }
   p->setSymbolAndType(symIndex, rel.type, config->isMips64EL);
 }
 
@@ -1708,6 +1715,24 @@ RelocationSection<ELFT>::RelocationSection(StringRef name, bool sort)
 
 template <class ELFT> void RelocationSection<ELFT>::writeTo(uint8_t *buf) {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab;
+
+  // This is a bit of a hack.  IRIX rld doesn't like R_MIPS_32 relocations against no
+  // symbol -- it ignores them, and only actually relocates if the symbol index != 0.
+  // So we use section symbols that we generated to give a target to relocate against.
+  if (config->osabi == ELFOSABI_IRIX) {
+    for (DynamicReloc &rel : relocs) {
+      if (rel.sym && rel.getSymIndex(symTab) == 0) {
+        assert(rel.type == R_MIPS_REL32 || rel.type == (R_MIPS_64 << 8 | R_MIPS_REL32));
+        assert(rel.dynRelKind() == DynamicReloc::AddendOnlyWithTargetVA);
+
+        // figure out what section the symbol will be in, and make the relocation against that
+        Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(rel.sym->getOutputSection());
+
+        // replace with an updated AgainstSymbolWithTargetVA reloc
+        rel.forceAgainstSymbol(sectSym);
+      }
+    }
+  }
 
   // Sort by (!IsRelative,SymIndex,r_offset). DT_REL[A]COUNT requires us to
   // place R_*_RELATIVE first. SymIndex is to improve locality, while r_offset
@@ -2183,29 +2208,21 @@ size_t SymbolTableBaseSection::getSymbolIndex(Symbol *sym) {
     symbolIndexMap.reserve(symbols.size());
     size_t i = 0;
     for (const SymbolTableEntry &e : symbols) {
-      if (e.sym->type == STT_SECTION)
-        sectionIndexMap[e.sym->getOutputSection()] = ++i;
-      else
-        symbolIndexMap[e.sym] = ++i;
+      symbolIndexMap[e.sym] = ++i;
     }
   });
 
-  // Section symbols are mapped based on their output sections
-  // to maintain their semantics.
-  if (sym->type == STT_SECTION)
-    return sectionIndexMap.lookup(sym->getOutputSection());
   return symbolIndexMap.lookup(sym);
 }
 
-size_t SymbolTableBaseSection::getSectionSymbolIndex(OutputSection *outputSec) {
+Symbol *SymbolTableBaseSection::getSectionSymbol(OutputSection *outputSec) {
   // Initializes section lookup table lazily.  This is used on IRIX, where
   // we have to emit section-relative relocations because it treats STN_UNDEF
-  // as a relocation against 0, i.e. a no-op.
+  // as no-ops, instead of a relocation against the image base.
   llvm::call_once(onceFlag, [&] {
-    size_t i = 0;
     for (const SymbolTableEntry &e : symbols) {
       if (e.sym->type == STT_SECTION)
-        sectionIndexMap[e.sym->getOutputSection()] = ++i;
+        sectionIndexMap[e.sym->getOutputSection()] = e.sym;
     }
   });
 
@@ -2231,8 +2248,10 @@ static uint32_t getSymSectionIndex(Symbol *sym) {
   if (!isa<Defined>(sym) || sym->needsPltAddr)
     return SHN_UNDEF;
   if (const OutputSection *os = sym->getOutputSection())
+  {
     return os->sectionIndex >= SHN_LORESERVE ? (uint32_t)SHN_XINDEX
                                              : os->sectionIndex;
+  }
   return SHN_ABS;
 }
 

@@ -467,9 +467,14 @@ public:
 
   uint64_t getOffset() const;
   uint32_t getSymIndex(SymbolTableBaseSection *symTab) const;
+  Kind dynRelKind() const { return kind; }
   bool needsDynSymIndex() const {
     return kind == AgainstSymbol || kind == AgainstSymbolWithTargetVA;
   }
+
+  // Change this relocation to be against the given symbol.  Converts
+  // AddendOnlyWithTargetVA relocations to AgainstSymbolWithTargetVA.
+  void forceAgainstSymbol(Symbol *newSym);
 
   /// Computes the addend of the dynamic relocation. Note that this is not the
   /// same as the #addend member variable as it may also include the symbol
@@ -634,7 +639,7 @@ public:
   void addSymbol(Symbol *sym);
   unsigned getNumSymbols() const { return symbols.size() + 1; }
   size_t getSymbolIndex(Symbol *sym);
-  size_t getSectionSymbolIndex(OutputSection *outputSec);
+  Symbol *getSectionSymbol(OutputSection *outputSec);
   ArrayRef<SymbolTableEntry> getSymbols() const { return symbols; }
 
 protected:
@@ -647,7 +652,7 @@ protected:
 
   llvm::once_flag onceFlag;
   llvm::DenseMap<Symbol *, size_t> symbolIndexMap;
-  llvm::DenseMap<OutputSection *, size_t> sectionIndexMap;
+  llvm::DenseMap<OutputSection *, Symbol *> sectionIndexMap;
 };
 
 template <class ELFT>
