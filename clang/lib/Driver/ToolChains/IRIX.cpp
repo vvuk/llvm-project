@@ -274,7 +274,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     // compiler-rt CRT
     if (!Args.hasArg(options::OPT_static))
     {
-      SmallString<128> crtbegin("clang_rt.crtbegin");
+      SmallString<128> crtbegin("clang_rt.crtbegin-");
       crtbegin += ToolChain.GetLibSuffix();
       crtbegin += ".o";
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin.c_str())));
@@ -349,7 +349,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_nostartfiles)) {
     // compiler-rt CRT
     if (!Args.hasArg(options::OPT_static)) {
-      SmallString<128> crtend("clang_rt.crtend");
+      SmallString<128> crtend("clang_rt.crtend-");
       crtend += ToolChain.GetLibSuffix();
       crtend += ".o";
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtend.c_str())));

@@ -12,7 +12,10 @@ mkdir -p $RTDIR
 set -e
 set -x
 
-${CC} ${CFLAGS} -mips3 -mabi=n32 -c ../compiler-rt/lib/crt/crtbegin.c -o ${RTDIR}/clang_rt.crtbegin32.o
-${CC} ${CFLAGS} -mips3 -mabi=n32 -c ../compiler-rt/lib/crt/crtend.c   -o ${RTDIR}/clang_rt.crtend32.o
-${CC} ${CFLAGS} -mips4 -mabi=64  -c ../compiler-rt/lib/crt/crtbegin.c -o ${RTDIR}/clang_rt.crtbegin64.o
-${CC} ${CFLAGS} -mips4 -mabi=64  -c ../compiler-rt/lib/crt/crtend.c   -o ${RTDIR}/clang_rt.crtend64.o
+# These _must_ be named with a -xxx. 
+#${CC} ${CFLAGS} -mips3 -mabi=o32 -c ../compiler-rt/lib/crt/crtbegin.c -o ${RTDIR}/clang_rt.crtbegin.o
+#${CC} ${CFLAGS} -mips3 -mabi=o32 -c ../compiler-rt/lib/crt/crtend.c   -o ${RTDIR}/clang_rt.crtend.o
+${CC} ${CFLAGS} -mips3 -mabi=n32 -c ../compiler-rt/lib/crt/crtbegin.c -o ${RTDIR}/clang_rt.crtbegin-32.o
+${CC} ${CFLAGS} -mips3 -mabi=n32 -c ../compiler-rt/lib/crt/crtend.c   -o ${RTDIR}/clang_rt.crtend-32.o
+${CC} ${CFLAGS} -mips4 -mabi=64  -c ../compiler-rt/lib/crt/crtbegin.c -o ${RTDIR}/clang_rt.crtbegin-64.o
+${CC} ${CFLAGS} -mips4 -mabi=64  -c ../compiler-rt/lib/crt/crtend.c   -o ${RTDIR}/clang_rt.crtend-64.o
