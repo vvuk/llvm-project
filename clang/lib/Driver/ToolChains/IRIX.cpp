@@ -266,7 +266,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
+  if (!Args.hasArg(options::OPT_nostartfiles)) {
     // from IRIX
     if (!Args.hasArg(options::OPT_shared))
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt1.o")));
@@ -346,7 +346,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!didBuiltins)
     CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins"));
 
-  if (!Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles)) {
+  if (!Args.hasArg(options::OPT_nostartfiles)) {
     // compiler-rt CRT
     if (!Args.hasArg(options::OPT_static)) {
       SmallString<128> crtend("clang_rt.crtend");
