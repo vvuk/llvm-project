@@ -94,6 +94,10 @@
 #if LLVM_ON_UNIX
 #include <unistd.h> // getpid
 #endif
+#ifdef __sgi
+#include <sys/sysmips.h>
+extern "C" int sysmips(int, int, int, int);
+#endif
 
 using namespace clang::driver;
 using namespace clang;
@@ -147,6 +151,10 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
   // Provide a sane fallback if no VFS is specified.
   if (!this->VFS)
     this->VFS = llvm::vfs::getRealFileSystem();
+
+#ifdef __sgi
+  sysmips(MIPS_FIXADE, 1, 0, 0);
+#endif
 
   Name = std::string(llvm::sys::path::filename(ClangExecutable));
   Dir = std::string(llvm::sys::path::parent_path(ClangExecutable));

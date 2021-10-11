@@ -62,6 +62,10 @@
 #include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
 #include <utility>
+#ifdef __sgi
+#include <sys/sysmips.h>
+extern "C" int sysmips(int, int, int, int);
+#endif
 
 using namespace llvm;
 using namespace llvm::ELF;
@@ -477,6 +481,10 @@ static void checkZOptions(opt::InputArgList &args) {
 }
 
 void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
+#ifdef __sgi
+  sysmips(MIPS_FIXADE, 1, 0, 0);
+#endif
+
   ELFOptTable parser;
   opt::InputArgList args = parser.parse(argsArr.slice(1));
 
