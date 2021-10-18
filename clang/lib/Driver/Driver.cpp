@@ -153,7 +153,8 @@ Driver::Driver(StringRef ClangExecutable, StringRef TargetTriple,
     this->VFS = llvm::vfs::getRealFileSystem();
 
 #ifdef __sgi
-  sysmips(MIPS_FIXADE, 1, 0, 0);
+  if (getenv("NO_FIXADE") == nullptr)
+      sysmips(MIPS_FIXADE, 1, 0, 0);
 #endif
 
   Name = std::string(llvm::sys::path::filename(ClangExecutable));

@@ -2255,8 +2255,19 @@ static uint32_t getSymSectionIndex(Symbol *sym) {
   return SHN_ABS;
 }
 
+// TODO copied from Writer.cpp
+static OutputSection *findSection(StringRef name, unsigned partition = 1) {
+  for (BaseCommand *base : script->sectionCommands)
+    if (auto *sec = dyn_cast<OutputSection>(base))
+      if (sec->name == name && sec->partition == partition)
+        return sec;
+  return nullptr;
+}
+
 // Write the internal symbol table contents to the output symbol table.
 template <class ELFT> void SymbolTableSection<ELFT>::writeTo(uint8_t *buf) {
+  const OutputSection *textSection = config->relocatable ? nullptr : findSection(".text");
+
   // The first entry is a null entry as per the ELF spec.
   memset(buf, 0, sizeof(Elf_Sym));
   buf += sizeof(Elf_Sym);
@@ -2290,6 +2301,21 @@ template <class ELFT> void SymbolTableSection<ELFT>::writeTo(uint8_t *buf) {
       eSym->st_shndx = getSymSectionIndex(ent.sym);
     else
       eSym->st_shndx = 0;
+
+    // IRIX has some special indices for different section types
+    if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx) {
+      BssSection *bss;
+      if (auto *defSym = dyn_cast<Defined>(sym)) {
+        if (textSection && sym->getOutputSection() == textSection) {
+          eSym->st_shndx = SHN_MIPS_TEXT;
+        } else if (defSym->section && (bss = dyn_cast<BssSection>(defSym->section))) {
+          // was this an automatically defined common symbol
+          if (bss->name == "COMMON")
+            eSym->st_shndx = SHN_MIPS_ACOMMON;
+        }
+        // TODO do we need to put anything in SHN_MIPS_DATA?
+      }
+    }
 
     // Copy symbol size if it is a defined symbol. st_size is not significant
     // for undefined symbols, so whether copying it or not is up to us if that's

@@ -1620,6 +1620,17 @@ enum {
   NT_AMDGPU_METADATA = 32
 };
 
+// MIPS / IRIX specific section indices
+enum {
+  // IRIX recognizes .bss, .text, etc. sections by number/name properly, but prefers
+  // these identifiers.
+  SHN_MIPS_ACOMMON    = SHN_LORESERVE,     // Defined, allocated common symbol.
+  SHN_MIPS_TEXT       = SHN_LORESERVE + 1, // Defined, allocated text symbol.
+  SHN_MIPS_DATA       = SHN_LORESERVE + 2, // Defined, allocated data symbol.
+  SHN_MIPS_SCOMMON    = SHN_LORESERVE + 3, // "Small" common symbol.
+  SHN_MIPS_SUNDEFINED = SHN_LORESERVE + 4, // "Small" undefined symbol.
+};
+
 // LLVMOMPOFFLOAD specific notes.
 enum : unsigned {
   NT_LLVM_OPENMP_OFFLOAD_VERSION = 1,

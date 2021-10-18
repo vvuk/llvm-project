@@ -482,7 +482,8 @@ static void checkZOptions(opt::InputArgList &args) {
 
 void LinkerDriver::linkerMain(ArrayRef<const char *> argsArr) {
 #ifdef __sgi
-  sysmips(MIPS_FIXADE, 1, 0, 0);
+  if (getenv("NO_FIXADE") == nullptr)
+    sysmips(MIPS_FIXADE, 1, 0, 0);
 #endif
 
   ELFOptTable parser;
@@ -1826,6 +1827,40 @@ static void writeDependencyFile() {
   }
 }
 
+static CommonSymbol *addCommon(StringRef name, uint8_t stOther, uint8_t stType,
+                               uint64_t alignment, uint64_t stSize) {
+  Symbol *s = symtab->find(name);
+  if (s && s->isCommon())
+    return cast<CommonSymbol>(s);
+  
+  assert(s == nullptr && "Symbol should be common if defined");
+
+  s = symtab->addSymbol(CommonSymbol{nullptr, name, STB_GLOBAL, stOther, stType, alignment, stSize});
+  return cast<CommonSymbol>(s);
+}
+
+// The linker is expected to create some symbols for the dynamic linker to fill in,
+// at least on IRIX.  This has to happen late, because the values of these are not
+// absolute; they actually exist.
+static void addLinkerDefinedCommonSymbols() {
+  // IRIX has a few magic things
+  if (config->osabi == ELFOSABI_IRIX) {
+    // __Argc and __Argv symbols.  These must be present, because
+    // rld looks for them and chokes if it doesn't find them.  __Argc is int sized,
+    // __Argv is pointer-sized.
+    CommonSymbol *csym;
+    csym = addCommon("__Argc", STV_DEFAULT, STT_OBJECT, 4, 4);
+    csym->inDynamicList = true;
+    csym = addCommon("__Argv", STV_DEFAULT, STT_OBJECT, config->wordsize, config->wordsize);
+    csym->inDynamicList = true;
+
+    // __rld_obj_head is for rld to fill in its obj head pointer.  It's technically optional,
+    // but we may as well fill it in.  No GOT entry needed for this one?
+    csym = addCommon("__rld_obj_head", STV_DEFAULT, STT_OBJECT, config->wordsize, config->wordsize);
+    csym->inDynamicList;
+  }
+}
+
 // Replaces common symbols with defined symbols reside in .bss sections.
 // This function is called after all symbol names are resolved. As a
 // result, the passes after the symbol resolution won't see any
@@ -2451,6 +2486,10 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // This adds a .comment section containing a version string.
   if (!config->relocatable)
     inputSections.push_back(createCommentSection());
+
+  // Add some linker-defined common symbols
+  if (!config->relocatable)
+    addLinkerDefinedCommonSymbols();
 
   // Replace common symbols with regular symbols.
   replaceCommonSymbols();
