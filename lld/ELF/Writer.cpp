@@ -1004,7 +1004,6 @@ static unsigned getSectionRank(const OutputSection *sec) {
       rank |= RF_EXEC_WRITE;
     else
       rank |= RF_EXEC;
-    // TODO IRIX FIXME: this was rank = 0; why
   } else if (isWrite) {
     rank |= RF_WRITE;
   } else if (sec->type == SHT_PROGBITS) {
