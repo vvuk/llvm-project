@@ -1827,37 +1827,33 @@ static void writeDependencyFile() {
   }
 }
 
-static CommonSymbol *addCommon(StringRef name, uint8_t stOther, uint8_t stType,
-                               uint64_t alignment, uint64_t stSize) {
-  Symbol *s = symtab->find(name);
-  if (s && s->isCommon())
-    return cast<CommonSymbol>(s);
-  
-  assert(s == nullptr && "Symbol should be common if defined");
-
-  s = symtab->addSymbol(CommonSymbol{nullptr, name, STB_GLOBAL, stOther, stType, alignment, stSize});
-  return cast<CommonSymbol>(s);
-}
-
 // The linker is expected to create some symbols for the dynamic linker to fill in,
 // at least on IRIX.  This has to happen late, because the values of these are not
 // absolute; they actually exist.
-static void addLinkerDefinedCommonSymbols() {
+static void fixupLinkerSymbols() {
   // IRIX has a few magic things
   if (config->osabi == ELFOSABI_IRIX) {
-    // __Argc and __Argv symbols.  These must be present, because
-    // rld looks for them and chokes if it doesn't find them.  __Argc is int sized,
-    // __Argv is pointer-sized.
-    CommonSymbol *csym;
-    csym = addCommon("__Argc", STV_DEFAULT, STT_OBJECT, 4, 4);
-    csym->inDynamicList = true;
-    csym = addCommon("__Argv", STV_DEFAULT, STT_OBJECT, config->wordsize, config->wordsize);
-    csym->inDynamicList = true;
+    // __Argc and __Argv symbols.  These must be present, because rld looks for them and chokes
+    // if it doesn't find them.  They're common symbols in crt1.o, but in case that's not being used...
+    // These symbols _must_ have a GOT entry, hence inDynamicList = true.
+    Symbol *s;
+    
+    s = symtab->find("__Argc");
+    if (!s)
+      s = symtab->addSymbol(Defined{nullptr, "__Argc", STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 4, nullptr});
+    s->inDynamicList = true;
 
-    // __rld_obj_head is for rld to fill in its obj head pointer.  It's technically optional,
-    // but we may as well fill it in.  No GOT entry needed for this one?
-    csym = addCommon("__rld_obj_head", STV_DEFAULT, STT_OBJECT, config->wordsize, config->wordsize);
-    csym->inDynamicList;
+    s = symtab->find("__Argv");
+    if (!s)
+      s = symtab->addSymbol(Defined{nullptr, "__Argv", STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 4, nullptr});
+    s->inDynamicList = true;
+
+    // __rld_obj_head is a common symbol in crt1.o, but it's supposed to point to .rld.map
+    s = symtab->find("__rld_obj_head");
+    if (s && in.mipsRldMap) {
+        s->replace(Defined{nullptr, "__rld_obj_head", STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
+          in.mipsRldMap->getVA(0), uint64_t(config->wordsize), in.mipsRldMap});
+    }
   }
 }
 
@@ -2487,10 +2483,6 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   if (!config->relocatable)
     inputSections.push_back(createCommentSection());
 
-  // Add some linker-defined common symbols
-  if (!config->relocatable)
-    addLinkerDefinedCommonSymbols();
-
   // Replace common symbols with regular symbols.
   replaceCommonSymbols();
 
@@ -2508,6 +2500,9 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // Create synthesized sections such as .got and .plt. This is called before
   // processSectionCommands() so that they can be placed by SECTIONS commands.
   createSyntheticSections<ELFT>();
+
+  // Fix up some linker symbols; e.g. IRIX __Argc/__Argv and __rld_obj_head
+  fixupLinkerSymbols();
 
   // Some input sections that are used for exception handling need to be moved
   // into synthetic sections. Do that now so that they aren't assigned to
