@@ -2060,10 +2060,14 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
         continue;
       for (Symbol *sym : file->requiredSymbols)
         if (sym->isUndefined() && !sym->isWeak() && !sym->isMipsOptional()) {
-          // magic symbol from IRIX libc that rld fills in, but we don't want to define it
+          // magic symbols from IRIX libc that rld fills in, but we don't want to define it
        	  // TODO IRIX figure out a better way of handling this; just define it to 0?
-          if (config->osabi == ELFOSABI_IRIX && sym->getName() == "_rld_new_interface")
-            continue;
+          // Also no idea where gl_INTERPRET_END is supposed to come from.
+          if (config->osabi == ELFOSABI_IRIX) {
+            if (sym->getName() == "_rld_new_interface" ||  // libc.so
+                sym->getName() == "gl_INTERPRET_END")      // libGLcore.so
+              continue;
+          }
           diagnose(toString(file) + ": undefined reference to " +
                    toString(*sym) + " [--no-allow-shlib-undefined]");
 	}
