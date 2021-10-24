@@ -1,7 +1,7 @@
 #!/bin/bash
 
 RELDIR=$(dirname $0)/..
-if [ ! -f ${RELDIR}/llvm/CMakeLists ] ; then
+if [ ! -f ${RELDIR}/llvm/CMakeLists.txt ] ; then
     echo bad RELDIR ${RELDIR}
     exit 1
 fi
