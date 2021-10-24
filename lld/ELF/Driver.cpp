@@ -1831,8 +1831,8 @@ static void writeDependencyFile() {
 // at least on IRIX.  This has to happen late, because the values of these are not
 // absolute; they actually exist.
 static void fixupLinkerSymbols() {
-  // IRIX has a few magic things
-  if (config->osabi == ELFOSABI_IRIX) {
+  if (config->osabi == ELFOSABI_IRIX && !config->shared) {
+    // IRIX has a few magic things that must be in all executables.
     // __Argc and __Argv symbols.  These must be present, because rld looks for them and chokes
     // if it doesn't find them.  They're common symbols in crt1.o, but in case that's not being used...
     // These symbols _must_ have a GOT entry, hence inDynamicList = true.
@@ -1848,7 +1848,8 @@ static void fixupLinkerSymbols() {
       s = symtab->addSymbol(Defined{nullptr, "__Argv", STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 4, nullptr});
     s->inDynamicList = true;
 
-    // __rld_obj_head is a common symbol in crt1.o, but it's supposed to point to .rld.map
+    // __rld_obj_head is a common symbol in crt1.o, but it's supposed to point to .rld.map.  So if we emit
+    // a .rld.map, define __rld_obj_head
     s = symtab->find("__rld_obj_head");
     if (s && in.mipsRldMap) {
         s->replace(Defined{nullptr, "__rld_obj_head", STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
