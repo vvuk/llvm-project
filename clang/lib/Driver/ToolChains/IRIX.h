@@ -41,8 +41,11 @@ public:
   bool isPIEDefault() const override { return false; }
   bool isPICDefaultForced() const override { return false; }
   llvm::DebuggerKind getDefaultDebuggerTuning() const override {
-    return llvm::DebuggerKind::DBX;
+    // DBX is the wrong thing here -- setting DBX turns off pubnames support with IRIX dbx wants
+    return llvm::DebuggerKind::GDB;
   }
+  // IRIX dbx wants dwarf v2
+  unsigned GetDefaultDwarfVersion() const override { return 2; }
 
   SanitizerMask getSupportedSanitizers() const override { return SanitizerMask(); }
   SanitizerMask getDefaultSanitizers() const override { return SanitizerMask(); }

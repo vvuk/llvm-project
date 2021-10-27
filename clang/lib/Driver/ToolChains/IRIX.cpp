@@ -55,29 +55,13 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // IRIX has .../mips3 .../mips4 too
   getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix + "/" + cpu.str());
   getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix);
-  // I don't think this is needed
-  //getFilePaths().push_back(SysRoot + "/lib" + LibSuffix);
+  getFilePaths().push_back(SysRoot + "/lib" + LibSuffix);
 
-  // this is a little wonky.  The ToolChain::ToolChain constructor calls the virtual
-  // getRuntimePath() before we've had a chance to init LibSuffix (or, possibly, the
-  // string, so that's not cool).  Push the real one in front.  Might be the same.
-  getLibraryPaths().insert(getLibraryPaths().begin(), getRuntimePath());
-
-  // LLVM's own dirs
+  // LLVM's own dirs; making an assumption that LLVM is maybe installed in a
+  // /foo/bar directory with a tree, e.g. /foo/bar/bin/clang
   SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
   llvm::sys::path::append(P, "lib" + LibSuffix);
   addPathIfExists(D, P, getFilePaths());
-
-  // Similar to the logic for GCC above, if we currently running Clang inside
-  // of the requested system root, add its parent library paths to
-  // those searched.
-  // FIXME: It's not clear whether we should use the driver's installed
-  // directory ('Dir' below) or the ResourceDir.
-  if (StringRef(D.Dir).startswith(SysRoot)) {
-    SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
-    llvm::sys::path::append(P, "lib" + LibSuffix);
-    addPathIfExists(D, P, getFilePaths());
-  }
 }
 
 Tool *IRIX::buildLinker() const {
@@ -193,7 +177,6 @@ void IRIX::AddCXXStdlibLibArgs(const ArgList &DriverArgs,
   }
 }
 
-
 void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                    const InputInfo &Output,
                                    const InputInfoList &Inputs,
@@ -273,12 +256,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
     // compiler-rt CRT
     if (!Args.hasArg(options::OPT_static))
-    {
-      SmallString<128> crtbegin("clang_rt.crtbegin-");
-      crtbegin += ToolChain.GetLibSuffix();
-      crtbegin += ".o";
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin.c_str())));
-    }
+      CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtbegin", ToolChain::FT_Object));
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
@@ -344,16 +322,12 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   // can't use AddRunTimeLibs because it pulls in libunwind
   if (!didBuiltins)
-    CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins"));
+    CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins", ToolChain::FT_Static));
 
   if (!Args.hasArg(options::OPT_nostartfiles)) {
     // compiler-rt CRT
-    if (!Args.hasArg(options::OPT_static)) {
-      SmallString<128> crtend("clang_rt.crtend-");
-      crtend += ToolChain.GetLibSuffix();
-      crtend += ".o";
-      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtend.c_str())));
-    }
+    if (!Args.hasArg(options::OPT_static))
+      CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtend", ToolChain::FT_Object));
 
     // from IRIX
     if (!Args.hasArg(options::OPT_shared))

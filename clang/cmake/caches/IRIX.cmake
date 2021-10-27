@@ -56,6 +56,7 @@ foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
     endif()
 
     set(RUNTIMES_${target}_LLVM_LIBDIR_SUFFIX "${libdir_suffix}" CACHE STRING "")
+    set(RUNTIMES_${target}_CMAKE_BUILD_WITH_INSTALL_RPATH ON CACHE BOOL "")
     # I think we need to set COMPILER_RT_INSTALL_LIBRARY_DIR and COMPILER_RT_OUTPUT_LIBRARY_DIR?
 
     # CMake doesn't know this as a valid system.  We pretend to be linux for most things,
