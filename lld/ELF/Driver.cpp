@@ -1839,14 +1839,12 @@ static void fixupLinkerSymbols() {
     Symbol *s;
     
     s = symtab->find("__Argc");
-    if (!s)
-      s = symtab->addSymbol(Defined{nullptr, "__Argc", STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 4, nullptr});
-    s->inDynamicList = true;
+    if (s)
+      s->inDynamicList = true;
 
     s = symtab->find("__Argv");
-    if (!s)
-      s = symtab->addSymbol(Defined{nullptr, "__Argv", STB_GLOBAL, STV_DEFAULT, STT_OBJECT, 0, 4, nullptr});
-    s->inDynamicList = true;
+    if (s)
+      s->inDynamicList = true;
 
     // __rld_obj_head is a common symbol in crt1.o, but it's supposed to point to .rld.map.  So if we emit
     // a .rld.map, define __rld_obj_head
@@ -2261,6 +2259,22 @@ template <class ELFT> void LinkerDriver::link(opt::InputArgList &args) {
   // -u foo a.a b.so will fetch a.a.
   for (StringRef name : config->undefined)
     addUnusedUndefined(name)->referenced = true;
+
+  if (config->osabi == ELFOSABI_IRIX) {
+    // make sure these get in as undefined, so they get defined later
+    addUndefined("_etext");
+    addUndefined("etext");
+    addUndefined("_end");
+    addUndefined("end");
+    // mipspro defines these but.. I can't actually tell to what. e.g. ftext
+    // and fbss both point to the start of the section _before_ text/bss.
+    //addUndefined("_ftext");
+    //addUndefined("ftext");
+    //addUndefined("_fdata");
+    //addUndefined("fdata");
+    //addUndefined("_fbss");
+    //addUndefined("fbss");
+  }
 
   // Add all files to the symbol table. This will add almost all
   // symbols that we need to the symbol table. This process might

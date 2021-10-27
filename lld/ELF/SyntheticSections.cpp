@@ -167,8 +167,8 @@ template <class ELFT> void MipsOptionsSection<ELFT>::writeTo(uint8_t *buf) {
 
 template <class ELFT>
 MipsOptionsSection<ELFT> *MipsOptionsSection<ELFT>::create() {
-  // N64 ABI only.
-  if (!ELFT::Is64Bits)
+  // N64 ABI only. (or N32, but just do it always on IRIX)
+  if (!ELFT::Is64Bits && config->osabi != ELFOSABI_IRIX)
     return nullptr;
 
   std::vector<InputSectionBase *> sections;
@@ -1518,7 +1518,11 @@ template <class ELFT> void DynamicSection<ELFT>::finalizeContents() {
 
   if (config->emachine == EM_MIPS) {
     addInt(DT_MIPS_RLD_VERSION, 1);
-    addInt(DT_MIPS_FLAGS, RHF_NOTPOT);
+    if (config->osabi != ELFOSABI_IRIX) {
+      addInt(DT_MIPS_FLAGS, RHF_NOTPOT);
+    } else {
+      addInt(DT_MIPS_FLAGS, RHF_NOTPOT | RHF_SGI_ONLY | RHF_NO_UNRES_UNDEF /* | RHF_RLD_ORDER_SAFE */);
+    }
     addInt(DT_MIPS_BASE_ADDRESS, target->getImageBase());
     addInt(DT_MIPS_SYMTABNO, part.dynSymTab->getNumSymbols());
 
@@ -1536,6 +1540,8 @@ template <class ELFT> void DynamicSection<ELFT>::finalizeContents() {
       // relative to the address of the tag.
       addInSecRelative(DT_MIPS_RLD_MAP_REL, in.mipsRldMap);
     }
+    if (config->osabi == ELFOSABI_IRIX && in.mipsOptions)
+      addInSec(DT_MIPS_OPTIONS, in.mipsOptions);
   }
 
   // DT_PPC_GOT indicates to glibc Secure PLT is used. If DT_PPC_GOT is absent,

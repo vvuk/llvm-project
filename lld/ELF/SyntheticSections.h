@@ -1271,6 +1271,7 @@ struct InStruct {
   StringTableSection *strTab;
   SymbolTableBaseSection *symTab;
   SymtabShndxSection *symTabShndx;
+  SyntheticSection *mipsOptions;
 };
 
 extern InStruct in;

@@ -67,7 +67,7 @@ private:
 
   std::vector<PhdrEntry *> createPhdrs(Partition &part);
   void addPhdrForSection(Partition &part, unsigned shType, unsigned pType,
-                         unsigned pFlags);
+                         unsigned pFlags, int destLoc = -1);
   void assignFileOffsets();
   void assignFileOffsetsBinary();
   void setPhdrs(Partition &part);
@@ -389,8 +389,10 @@ template <class ELFT> void elf::createSyntheticSections() {
     }
     if (auto *sec = MipsAbiFlagsSection<ELFT>::create())
       add(sec);
-    if (auto *sec = MipsOptionsSection<ELFT>::create())
+    if (auto *sec = MipsOptionsSection<ELFT>::create()) {
+      in.mipsOptions = sec;
       add(sec);
+    }
     if (auto *sec = MipsReginfoSection<ELFT>::create())
       add(sec);
   }
@@ -2163,9 +2165,11 @@ template <class ELFT> void Writer<ELFT>::finalizeSections() {
       }
       if (config->emachine == EM_MIPS) {
         // Add separate segments for MIPS-specific sections.
-        addPhdrForSection(part, SHT_MIPS_REGINFO, PT_MIPS_REGINFO, PF_R);
-        addPhdrForSection(part, SHT_MIPS_OPTIONS, PT_MIPS_OPTIONS, PF_R);
-        addPhdrForSection(part, SHT_MIPS_ABIFLAGS, PT_MIPS_ABIFLAGS, PF_R);
+        // IRIX requires PT_MIPS_OPTIONS to be before the DYNAMIC phdr.
+        int loc = config->osabi == ELFOSABI_IRIX ? 2 : -1;
+        addPhdrForSection(part, SHT_MIPS_ABIFLAGS, PT_MIPS_ABIFLAGS, PF_R, loc);
+        addPhdrForSection(part, SHT_MIPS_REGINFO, PT_MIPS_REGINFO, PF_R, loc);
+        addPhdrForSection(part, SHT_MIPS_OPTIONS, PT_MIPS_OPTIONS, PF_R, loc);
       }
     }
     Out::programHeaders->size = sizeof(Elf_Phdr) * mainPart->phdrs.size();
@@ -2537,7 +2541,7 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
 
 template <class ELFT>
 void Writer<ELFT>::addPhdrForSection(Partition &part, unsigned shType,
-                                     unsigned pType, unsigned pFlags) {
+                                     unsigned pType, unsigned pFlags, int destLoc) {
   unsigned partNo = part.getNumber();
   auto i = llvm::find_if(outputSections, [=](OutputSection *cmd) {
     return cmd->partition == partNo && cmd->type == shType;
@@ -2547,7 +2551,11 @@ void Writer<ELFT>::addPhdrForSection(Partition &part, unsigned shType,
 
   PhdrEntry *entry = make<PhdrEntry>(pType, pFlags);
   entry->add(*i);
-  part.phdrs.push_back(entry);
+  if (destLoc != -1) {
+      part.phdrs.insert(part.phdrs.begin() + destLoc, entry);
+  } else {
+      part.phdrs.push_back(entry);
+  }
 }
 
 // Place the first section of each PT_LOAD to a different page (of maxPageSize).
