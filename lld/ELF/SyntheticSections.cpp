@@ -2308,8 +2308,12 @@ template <class ELFT> void SymbolTableSection<ELFT>::writeTo(uint8_t *buf) {
     else
       eSym->st_shndx = 0;
 
-    // IRIX has some special indices for different section types
-    if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx) {
+    // IRIX has some special indices for different section types.  But they don't
+    // seem to be needed, and things like ACOMMON cause rld to go down a different
+    // path (e.g. it actually does a search through all objects I think to find
+    // a non-common definition).  So don't do that.
+    static bool doSpecialIRIXSections = getenv("IRIX_SPECIAL_SECTIONS") != nullptr;
+    if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx && doSpecialIRIXSections) {
       BssSection *bss;
       if (auto *defSym = dyn_cast<Defined>(sym)) {
         if (textSection && sym->getOutputSection() == textSection) {
