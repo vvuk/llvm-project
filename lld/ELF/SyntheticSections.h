@@ -715,6 +715,7 @@ public:
   size_t getSize() const override { return size; }
 
 private:
+  unsigned numBuckets = 0;
   size_t size = 0;
 };
 

@@ -1521,7 +1521,7 @@ template <class ELFT> void DynamicSection<ELFT>::finalizeContents() {
     if (config->osabi != ELFOSABI_IRIX) {
       addInt(DT_MIPS_FLAGS, RHF_NOTPOT);
     } else {
-      addInt(DT_MIPS_FLAGS, RHF_NOTPOT | RHF_SGI_ONLY | RHF_NO_UNRES_UNDEF /* | RHF_RLD_ORDER_SAFE */);
+      addInt(DT_MIPS_FLAGS, /*RHF_NOTPOT | */ RHF_SGI_ONLY | RHF_NO_UNRES_UNDEF /* | RHF_RLD_ORDER_SAFE */);
     }
     addInt(DT_MIPS_BASE_ADDRESS, target->getImageBase());
     addInt(DT_MIPS_SYMTABNO, part.dynSymTab->getNumSymbols());
@@ -2594,6 +2594,20 @@ HashTableSection::HashTableSection()
   this->entsize = 4;
 }
 
+// this must exist somewhere else, but I can't find it
+static unsigned int next_pow2_helper(unsigned int v) {
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+}
+
+static const bool POT_HASH = true;
+
 void HashTableSection::finalizeContents() {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab;
 
@@ -2603,8 +2617,11 @@ void HashTableSection::finalizeContents() {
   unsigned numEntries = 2;               // nbucket and nchain.
   numEntries += symTab->getNumSymbols(); // The chain entries.
 
-  // Create as many buckets as there are symbols.
-  numEntries += symTab->getNumSymbols();
+  numBuckets = symTab->getNumSymbols();
+  if (POT_HASH)
+    numBuckets = next_pow2_helper(numBuckets);
+
+  numEntries += numBuckets;              // The bucket heads
   this->size = numEntries * 4;
 }
 
@@ -2617,17 +2634,17 @@ void HashTableSection::writeTo(uint8_t *buf) {
   unsigned numSymbols = symTab->getNumSymbols();
 
   uint32_t *p = reinterpret_cast<uint32_t *>(buf);
-  write32(p++, numSymbols); // nbucket
+  write32(p++, numBuckets); // nbucket
   write32(p++, numSymbols); // nchain
 
   uint32_t *buckets = p;
-  uint32_t *chains = p + numSymbols;
+  uint32_t *chains = p + numBuckets;
 
   for (const SymbolTableEntry &s : symTab->getSymbols()) {
     Symbol *sym = s.sym;
     StringRef name = sym->getName();
     unsigned i = sym->dynsymIndex;
-    uint32_t hash = hashSysV(name) % numSymbols;
+    uint32_t hash = hashSysV(name) % numBuckets;
     chains[i] = buckets[hash];
     write32(buckets + hash, i);
   }
