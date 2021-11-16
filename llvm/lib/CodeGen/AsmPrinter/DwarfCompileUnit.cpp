@@ -439,6 +439,9 @@ DIE &DwarfCompileUnit::updateSubprogramScopeDIE(const DISubprogram *SP) {
       if (Register::isPhysicalRegister(FrameBase.Location.Reg)) {
         MachineLocation Location(FrameBase.Location.Reg);
         addAddress(*SPDie, dwarf::DW_AT_frame_base, Location);
+        // TODO IRIX
+        // this needs to be the offset of the FDE in the debug_frame section
+        //addUInt(*SPDie, dwarf::DW_AT_MIPS_fde, dwarf::DW_FORM_data4, 1);
       }
       break;
     }

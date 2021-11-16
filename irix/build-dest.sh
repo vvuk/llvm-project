@@ -4,6 +4,11 @@ echo running install..
 rm -rf DEST
 DESTDIR=`pwd`/DEST ninja install
 
+if [ ! -d DEST/usr/llvm ] ; then
+    echo nothing created DEST
+    exit 1
+fi
+
 echo fixing includes..
 pushd DEST/usr/llvm
 cp -r ../../../../irix/include-fixed lib32/clang/14.0.0/include-fixed
