@@ -2374,9 +2374,14 @@ static uint64_t computeFlags(uint64_t flags) {
 template <class ELFT>
 std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
   std::vector<PhdrEntry *> ret;
-  auto addHdr = [&](unsigned type, unsigned flags) -> PhdrEntry * {
-    ret.push_back(make<PhdrEntry>(type, flags));
-    return ret.back();
+  auto addHdr = [&](unsigned type, unsigned flags, int destLoc = -1) -> PhdrEntry * {
+    PhdrEntry *entry = make<PhdrEntry>(type, flags);
+    if (destLoc != -1) {
+      ret.insert(ret.begin() + destLoc, entry);
+    } else {
+      ret.push_back(entry);
+    }
+    return entry;
   };
 
   unsigned partNo = part.getNumber();
@@ -2485,7 +2490,10 @@ std::vector<PhdrEntry *> Writer<ELFT>::createPhdrs(Partition &part) {
 
   // Add an entry for .dynamic.
   if (OutputSection *sec = part.dynamic->getParent())
-    addHdr(PT_DYNAMIC, sec->getPhdrFlags())->add(sec);
+  {
+    int loc = config->osabi == ELFOSABI_IRIX ? 2 : -1;
+    addHdr(PT_DYNAMIC, sec->getPhdrFlags(), loc)->add(sec);
+  }
 
   if (relRo->firstSec)
     ret.push_back(relRo);

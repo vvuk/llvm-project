@@ -2312,13 +2312,16 @@ template <class ELFT> void SymbolTableSection<ELFT>::writeTo(uint8_t *buf) {
     // seem to be needed, and things like ACOMMON cause rld to go down a different
     // path (e.g. it actually does a search through all objects I think to find
     // a non-common definition).  So don't do that.
-    static bool doSpecialIRIXSections = getenv("IRIX_SPECIAL_SECTIONS") != nullptr;
+    // 
+    // HOWEVER, tools like SpeedShop _only_ look for some symbols, e.g. .text,
+    // with type 0xff01.  So we have to preserve this for text symbols.
+    static int doSpecialIRIXSections = getenv("IRIX_SPECIAL_SECTIONS") ? atoi(getenv("IRIX_SPECIAL_SECTIONS")) : 1;
     if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx && doSpecialIRIXSections) {
       BssSection *bss;
       if (auto *defSym = dyn_cast<Defined>(sym)) {
-        if (textSection && sym->getOutputSection() == textSection) {
+        if (textSection && sym->getOutputSection() == textSection && doSpecialIRIXSections > 0) {
           eSym->st_shndx = SHN_MIPS_TEXT;
-        } else if (defSym->section && (bss = dyn_cast<BssSection>(defSym->section))) {
+        } else if (defSym->section && (bss = dyn_cast<BssSection>(defSym->section)) && doSpecialIRIXSections > 1) {
           // was this an automatically defined common symbol
           if (bss->name == "COMMON")
             eSym->st_shndx = SHN_MIPS_ACOMMON;

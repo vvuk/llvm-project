@@ -1852,7 +1852,13 @@ static void fixupLinkerSymbols() {
     if (s && in.mipsRldMap) {
         s->replace(Defined{nullptr, "__rld_obj_head", STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
           in.mipsRldMap->getVA(0), uint64_t(config->wordsize), in.mipsRldMap});
+        s->inDynamicList = true;
     }
+
+    // SpeedShop requires that this symbol be exported in dynsym
+    s = symtab->find("__start");
+    if (s)
+        s->inDynamicList = true;
   }
 }
 
