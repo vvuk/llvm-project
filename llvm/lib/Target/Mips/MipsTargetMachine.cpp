@@ -129,7 +129,8 @@ MipsTargetMachine::MipsTargetMachine(const Target &T, const Triple &TT,
   initAsmInfo();
 
   // Mips supports the debug entry values.
-  setSupportsDebugEntryValues(true);
+  // But IRIX doesn't, at least with the version of gdb that works
+  setSupportsDebugEntryValues(!TT.isOSIRIX());
 }
 
 MipsTargetMachine::~MipsTargetMachine() = default;
