@@ -16,22 +16,27 @@ if [ ! -f ${RELDIR}/llvm/CMakeLists.txt ] ; then
     exit 1
 fi
 
+ROOT=/opt/irix/root
+#ROOT=/home/vladimir/tmp/irix655
 LLVMVER=14
-if [ "$CROSSDIR" == "" ] ; then
-    CROSSDIR=${RELDIR}/build-full
-fi
 
-NDIR=$(readlink -f ${CROSSDIR})
+NDIR=${RELDIR}/build-full
+NDIR=$(readlink -f ${NDIR})
 CROSS_CC=${NDIR}/bin/clang
 CROSS_CXX=${NDIR}/bin/clang++
 XLINK="-lpthread"
+
+if [ ! -f ${ROOT}/lib32/libc.so.1 ] ; then
+    echo "Expected to find IRIX root in /opt/irix/root"
+    exit 1
+fi
 
 # set -x in subshell to trace the cmake invocation
 (set -x ; \
 cmake -G Ninja \
     -DCMAKE_SYSTEM_NAME=Linux \
     -C ${RELDIR}/clang/cmake/caches/IRIX-native.cmake \
-    -DCMAKE_INSTALL_PREFIX=/usr/llvm \
+    -DCMAKE_INSTALL_PREFIX=/usr/sgug \
     -DCMAKE_C_COMPILER="${CROSS_CC}" \
     -DCMAKE_CXX_COMPILER="${CROSS_CXX}" \
     -DLLVM_TABLEGEN=${NDIR}/bin/llvm-tblgen \

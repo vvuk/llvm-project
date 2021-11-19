@@ -16,11 +16,11 @@ if [ -f clang/CMakeLists.txt ] ; then
     exit 1
 fi
 
-ROOT=/opt/irix/root
+: IRIXROOT="${IRIXROOT:=/opt/irix/root}"
 LLVMVER=14
 
-if [ ! -f ${ROOT}/lib32/libc.so.1 ] ; then
-    echo "Expected to find IRIX root in /opt/irix/root"
+if [ ! -f ${IRIXROOT}/lib32/libc.so.1 ] ; then
+    echo "Expected to find IRIX root in ${IRIXROOT} (via IRIXROOT env var)"
     exit 1
 fi
 
@@ -28,7 +28,7 @@ fi
 (set -x ; \
 cmake -G Ninja \
     -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
-    -DDEFAULT_SYSROOT=${ROOT} \
+    -DDEFAULT_SYSROOT=${IRIXROOT} \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCLANG_DEFAULT_LINKER=lld \

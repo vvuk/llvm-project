@@ -1,0 +1,6 @@
+
+libc++ and friends don't have rpath set
+
+clang-built executables don't seem to inherit rpath
+
+lib32/cmake/llvm should be lib/cmake/llvm

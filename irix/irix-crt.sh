@@ -22,7 +22,7 @@ CFLAGS="-Werror=date-time -Werror=unguarded-availability-new -Wall -Wextra -Wno-
 #RTDIR=lib32/clang/14.0.0/lib/irix6.5
 RTDIR=lib32/clang/14.0.0/lib
 
-mkdir -p $RTDIR
+mkdir -p $RTDIR/mips64-sgi-irix6.5{,-gnuabin32}
 
 set -e
 set -x
