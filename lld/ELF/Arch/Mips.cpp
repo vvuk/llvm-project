@@ -72,8 +72,8 @@ template <class ELFT> MIPS<ELFT>::MIPS() {
   // IRIX rld hates shared objects with an image base of 0.  Use
   // the defaults that mipspro uses.
   if (config->osabi == ELFOSABI_IRIX) {
-    defaultImageBase = 0x5ff00000;
-    defaultPicImageBase = 0x10000000;
+    defaultImageBase    = 0x10000000;  // executables
+    defaultPicImageBase = 0x00400000;  // shared libraries
   }
 }
 
