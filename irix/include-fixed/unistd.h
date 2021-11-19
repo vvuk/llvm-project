@@ -307,7 +307,7 @@ extern int execlp(const char *, const char *, ...);
 extern int execv(const char *, char *const *);
 extern int execve(const char *, char *const *, char *const *);
 extern int execvp(const char *, char *const *);
-extern void _exit(int);
+extern void _exit(int) __attribute__ ((__noreturn__));
 extern pid_t fork(void);
 extern long fpathconf(int, int);
 

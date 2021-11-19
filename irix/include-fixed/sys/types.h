@@ -68,7 +68,9 @@ typedef xtiuscalar_t t_uscalar_t;
 #endif /* _XOPEN5 */
 
 /* Primarily Kernel types */
+#ifdef NEED_IRIX_KERNEL_ADDR_T
 typedef	char *		addr_t;		/* ?<core address> type */
+#endif
 typedef	char *		caddr_t;	/* ?<core address> type */
 #if (_MIPS_SIM == _ABIN32)
 typedef	__int64_t	daddr_t;	/* <disk address> type */
