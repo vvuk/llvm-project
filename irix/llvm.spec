@@ -21,6 +21,9 @@ Source0:        llvm-14.0.0-irix-sgug.tar
 Requires:	libcxx = %{version}-%{release}
 Requires:	libunwind = %{version}-%{release}
 
+# need to fix this, .so requires are showing up, but provides aren't
+AutoReqProv:    no
+
 #BuildRequires:  
 
 %description
@@ -76,6 +79,8 @@ Fixed include files for Clang on IRIX 6.5.30
 %package -n libcxx
 Summary:    LLVM project implementation of the C++ standard library
 Requires:	libunwind = %{version}-%{release}
+# TODO vlad -- not sure why automatic provides are broken
+Provides:   libc++.so.1
 
 %description -n libcxx
 LLVM project implementation of the C++ standard library
@@ -89,6 +94,7 @@ LLVM project implementation of the C++ standard library (development files)
 
 %package -n libunwind
 Summary:    LLVM project implementation of unwind library
+Provides:   libunwind.so.1
 
 %description -n libunwind
 LLVM project implementation of unwind library
@@ -229,7 +235,7 @@ echo LIB64DIR %{lib64dir}
 %{lib64dir}/libc++*
 
 %files -n libcxx-devel
-%{_includedir}/c++
+%{_includedir}/c++/v1
 %{_includedir}/mips64-sgi-irix6.5-gnuabin32/c++
 %{_includedir}/mips64-sgi-irix6.5/c++
 
