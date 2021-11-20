@@ -1,7 +1,7 @@
 %global maj_ver 14
 %global min_ver 0
 %global patch_ver 0
-%global rc_ver 2
+%global rc_ver 4
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}

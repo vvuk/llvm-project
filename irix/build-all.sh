@@ -104,7 +104,8 @@ cd ${BUILDDIR}-native
 mkdir -p lib32/clang/14.0.0/lib
 cp -r ../${BUILDDIR}-cross/DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib/* lib32/clang/14.0.0/lib
 
-CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} ../irix/setup-irix-native.sh -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX}
+CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} ../irix/setup-irix-native.sh -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
+    -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 ninja
 
 rm -rf DEST
