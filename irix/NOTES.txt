@@ -4,3 +4,7 @@ libc++ and friends don't have rpath set
 clang-built executables don't seem to inherit rpath
 
 lib32/cmake/llvm should be lib/cmake/llvm
+
+Making an rpm on Linux (with /opt/irix/root setup, and appropriate tarball in SOURCES):
+
+rpmbuild --target mips-irix --dbpath /opt/irix/root/usr/sgug/var/lib/rpm --macros /opt/irix/root/usr/sgug/lib/rpm/macros:/opt/irix/root/usr/sgug/lib/rpm/macros.d/macros.*:/opt/irix/root/usr/sgug/lib/rpm/platform/%{_target}/macros:/opt/irix/root/usr/sgug/lib/rpm/fileattrs/*.attr:/opt/irix/root/usr/sgug/lib/rpm/sgug/macros:/usr/sgug/etc/rpm/macros.*:/opt/irix/root/usr/sgug/etc/rpm/macros:/usr/sgug/etc/rpm/%{_target}/macros:~/.rpmmacros -ba llvm.spec 
