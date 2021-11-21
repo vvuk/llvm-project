@@ -27,7 +27,7 @@ fi
 # set -x in subshell to trace the cmake invocation
 (set -x ; \
 cmake -G Ninja \
-    -C ${RELDIR}/clang/cmake/caches/IRIX.cmake \
+    -C ${RELDIR}/clang/cmake/caches/IRIX-cross.cmake \
     -DDEFAULT_SYSROOT=${IRIXROOT} \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \

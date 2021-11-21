@@ -1,10 +1,5 @@
 # This file sets up a CMakeCache for a IRIX toolchain build.
 
-set(LLVM_ENABLE_ASSERTIONS ON CACHE BOOL "")
-# Eventually just do release builds
-#set(CMAKE_BUILD_TYPE Release CACHE STRING "")
-set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "")
-
 set(PACKAGE_VENDOR IRIX CACHE STRING "")
 
 # Build this for N32
@@ -16,8 +11,6 @@ set(LLVM_ENABLE_RUNTIMES "libunwind;compiler-rt;libcxxabi;libcxx" CACHE STRING "
 set(LLVM_RUNTIME_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
 set(LLVM_BUILTIN_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
 
-set(LLVM_TARGETS_TO_BUILD Mips CACHE STRING "")
-set(LLVM_TARGET_ARCH Mips CACHE STRING "")
 set(LLVM_ENABLE_LLD ON CACHE BOOL "")
 
 ###set(ENABLE_EXPERIMENTAL_NEW_PASS_MANAGER ON CACHE BOOL "")

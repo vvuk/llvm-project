@@ -1,7 +1,7 @@
 %global maj_ver 14
 %global min_ver 0
 %global patch_ver 0
-%global rc_ver 4
+%global rc_ver 5
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}
@@ -180,7 +180,6 @@ echo LIB64DIR %{lib64dir}
 %{_bindir}/dsymutil
 %{_bindir}/diagtool
 %{_bindir}/find-all-symbols
-%{_bindir}/git-clang-format
 %{_bindir}/hmaptool
 %{_bindir}/modularize
 %{_bindir}/pp-trace

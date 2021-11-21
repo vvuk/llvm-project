@@ -26,6 +26,10 @@ CROSS_CC=${NDIR}/bin/clang
 CROSS_CXX=${NDIR}/bin/clang++
 XLINK="-lpthread"
 
+if [ "$1" == "withdocs" ] ; then
+    DOCS="-DLLVM_ENABLE_SPHINX=ON -DSPHINX_OUTPUT_MAN=ON -DSPHINX_OUTPUT_HTML=OFF"
+fi
+
 # set -x in subshell to trace the cmake invocation
 (set -x ; \
 cmake -G Ninja \

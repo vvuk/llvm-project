@@ -52,6 +52,9 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   // Find out the library suffix based on the ABI.
   LibSuffix = tools::mips::getMipsABILibSuffix(Args, Triple);
 
+  // Add the SGUG lib path, if present
+  addPathIfExists(D, SysRoot + "/usr/sgug/lib" + LibSuffix, getFilePaths());
+
   // IRIX has .../mips3 .../mips4 too
   getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix + "/" + cpu.str());
   getFilePaths().push_back(SysRoot + "/usr/lib" + LibSuffix);
@@ -59,9 +62,7 @@ IRIX::IRIX(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
 
   // LLVM's own dirs; making an assumption that LLVM is maybe installed in a
   // /foo/bar directory with a tree, e.g. /foo/bar/bin/clang
-  SmallString<128> P(llvm::sys::path::parent_path(D.Dir));
-  llvm::sys::path::append(P, "lib" + LibSuffix);
-  addPathIfExists(D, P, getFilePaths());
+  addPathIfExists(D, llvm::sys::path::parent_path(D.Dir) + "/lib" + LibSuffix, getFilePaths());
 }
 
 Tool *IRIX::buildLinker() const {
@@ -127,6 +128,9 @@ void IRIX::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
       addExternCSystemInclude(DriverArgs, CC1Args, Prefix + Dir);
     }
   } else {
+    // SGUG headers
+    addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/sgug/include");
+
     // fixincludes output (global sysroot location)
     addSystemInclude(DriverArgs, CC1Args, D.SysRoot + "/usr/lib/clang/include-fixed");
 
@@ -297,6 +301,8 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
       if (OnlyLibstdcxxStatic)
         CmdArgs.push_back("-Bdynamic");
       CmdArgs.push_back("-lm");
+      // libpthread is default as-needed for sanity
+      CmdArgs.push_back("-lpthread");
       CmdArgs.push_back("--pop-state");
 
       AddRunTimeLibs(ToolChain, D, CmdArgs, Args);
@@ -308,8 +314,6 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     if (NeedsXRayDeps)
       linkXRayRuntimeDeps(ToolChain, CmdArgs);
 
-    // TODO should we just assume -lpthread, add it as_needed?  Without this
-    // porting software is just going to be more annoying.
     if (Args.hasArg(options::OPT_pthread))
       CmdArgs.push_back("-lpthread");
 
