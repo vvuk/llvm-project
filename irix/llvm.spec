@@ -1,7 +1,8 @@
 %global maj_ver 14
 %global min_ver 0
 %global patch_ver 0
-%global rc_ver 5
+#.global rc_ver 0
+%global pre_ver 1
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}
@@ -9,7 +10,7 @@
 %global lib64dir %{_prefix}/lib64
 
 Name:           llvm
-Version:    	%{maj_ver}.%{min_ver}.%{patch_ver}%{?rc_ver:~rc%{rc_ver}}
+Version:    	%{maj_ver}.%{min_ver}.%{patch_ver}%{?rc_ver:~rc%{rc_ver}}%{?pre_ver:~pre%{pre_ver}}
 Release:        1%{?dist}
 Summary:	    The Low Level Virtual Machine
 

@@ -67,30 +67,29 @@ echo "==== Cross compiler build ===="
 
 mkdir -p ${BUILDDIR}-cross
 cd ${BUILDDIR}-cross
-../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX}
 
+../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX}
 # Build clang first so we can build the CRT
 ninja bin/clang
 
+# Then build the CRT
 CC=`pwd`/bin/clang ../irix/build-crt.sh
+
+# Then the rest (including runtimes, which need the CRT)
 ninja
 
-# sort out DEST
-rm -rf DEST
-DESTDIR=`pwd`/DEST ninja install
-fix_dest_dir DEST/${CROSSPREFIX}
+# recreate DEST, but do it carefully so that we don't replace things
+# that would cause the native build to be forced to rebuild
+mkdir -p DEST
 
-# move runtimes so that they all live in lib32/clang/14.0.0/lib
-#cp -r DEST/${CROSSPREFIX}/lib/clang/14.0.0/lib/* DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib
-#cp -r DEST/${CROSSPREFIX}/lib64/clang/14.0.0/lib/* DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib
-#rm -rf DEST/${CROSSPREFIX}/lib DEST/${CROSSPREFIX}/lib64/clang
-#cp -r lib32/clang/14.0.0/lib/* DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib
-
-# copy in includes-fixed into the cross tree
-#cp -r ../irix/include-fixed DEST/${CROSSPREFIX}/lib32/clang/14.0.0
-
+rm -rf DEST.tmp
+DESTDIR=`pwd`/DEST.tmp ninja install
+fix_dest_dir DEST.tmp/${CROSSPREFIX}
 # clang-tblgen doesn't get installed, which complicates things.  just copy it in.
-cp bin/clang-tblgen DEST/${CROSSPREFIX}/bin
+cp -u bin/clang-tblgen DEST.tmp/${CROSSPREFIX}/bin
+
+rsync -a --delete -c DEST.tmp/ DEST/
+rm -rf DEST.tmp
 
 cd ..
 
@@ -104,8 +103,11 @@ cd ${BUILDDIR}-native
 mkdir -p lib32/clang/14.0.0/lib
 cp -r ../${BUILDDIR}-cross/DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib/* lib32/clang/14.0.0/lib
 
-CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} ../irix/setup-irix-native.sh -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
+CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} \
+    ../irix/setup-irix-native.sh \
+    -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
     -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+
 ninja
 
 rm -rf DEST

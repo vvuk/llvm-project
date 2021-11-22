@@ -10,6 +10,7 @@ set(LLVM_ENABLE_PROJECTS "clang;clang-tools-extra;lld;llvm" CACHE STRING "")
 set(LLVM_ENABLE_RUNTIMES "libunwind;compiler-rt;libcxxabi;libcxx" CACHE STRING "")
 set(LLVM_RUNTIME_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
 set(LLVM_BUILTIN_TARGETS "mips64-sgi-irix6.5-gnuabin32;mips64-sgi-irix6.5" CACHE STRING "")
+set(LLVM_TARGET_ARCH "Mips" CACHE STRING "")
 
 set(LLVM_ENABLE_LLD ON CACHE BOOL "")
 
@@ -56,6 +57,8 @@ foreach(target "mips64-sgi-irix6.5-gnuabin32" "mips64-sgi-irix6.5")
     # though that gets us into trouble in a few places
     #set(RUNTIMES_${target}_CMAKE_SYSTEM_NAME "IRIX" CACHE STRING "")
     set(RUNTIMES_${target}_LIBCXX_BUILD_FOR_IRIX ON CACHE BOOL "")
+    # need to override this so we don't pick up -latomic from gcc
+    set(RUNTIMES_${target}_LIBCXX_HAS_ATOMIC_LIB OFF CACHE BOOL "")
 
     #set(RUNTIMES_${target}_LLVM_ENABLE_PER_TARGET_RUNTIME_DIR ON CACHE BOOL "")
 
