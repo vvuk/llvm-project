@@ -17,6 +17,8 @@
 
 #include <memory>
 
+#undef TICK
+
 namespace llvm {
 class MCAsmBackend;
 class MCCodeEmitter;
