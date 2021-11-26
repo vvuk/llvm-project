@@ -691,6 +691,17 @@ static bool isValidReservedSectionIndex(uint16_t Index, uint16_t Machine) {
       return true;
     }
   }
+
+  if (Machine == EM_MIPS) {
+    switch (Index) {
+    case SHN_MIPS_DATA:
+    case SHN_MIPS_TEXT:
+    case SHN_MIPS_SCOMMON:
+    case SHN_MIPS_ACOMMON:
+    case SHN_MIPS_SUNDEFINED:
+      return true;
+    }
+  }
   return false;
 }
 
