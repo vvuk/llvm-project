@@ -55,68 +55,75 @@ fix_dest_dir () {
     DD="$1"
 
     # move runtimes so that they all live in lib32/clang/14.0.0/lib
-    cp -r ${DD}/lib/clang/14.0.0/lib/* ${DD}/lib32/clang/14.0.0/lib
-    cp -r ${DD}/lib64/clang/14.0.0/lib/* ${DD}/lib32/clang/14.0.0/lib
+    cp -u -r ${DD}/lib/clang/14.0.0/lib/* ${DD}/lib32/clang/14.0.0/lib
+    cp -u -r ${DD}/lib64/clang/14.0.0/lib/* ${DD}/lib32/clang/14.0.0/lib
     rm -rf ${DD}/lib ${DD}/lib64/clang
 
     # copy in includes-fixed into the cross tree
-    cp -r ${LLVMDIR}/irix/include-fixed ${DD}/lib32/clang/14.0.0
+    cp -u -r ${LLVMDIR}/irix/include-fixed ${DD}/lib32/clang/14.0.0
 }
 
-echo "==== Cross compiler build ===="
 
-mkdir -p ${BUILDDIR}-cross
-cd ${BUILDDIR}-cross
+if [ "$NO_BUILD_CROSS" == "" ] ; then
+    echo "==== Cross compiler build ===="
+    mkdir -p ${BUILDDIR}-cross
+    cd ${BUILDDIR}-cross
 
-../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX}
-# Build clang first so we can build the CRT
-ninja bin/clang
+    ../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX}
+    # Build clang first so we can build the CRT
+    ninja bin/clang
 
-# Then build the CRT
-CC=`pwd`/bin/clang ../irix/build-crt.sh
+    # Then build the CRT
+    CC=`pwd`/bin/clang ../irix/build-crt.sh
 
-# Then the rest (including runtimes, which need the CRT)
-ninja
+    # Then the rest (including runtimes, which need the CRT)
+    ninja
 
-# recreate DEST, but do it carefully so that we don't replace things
-# that would cause the native build to be forced to rebuild
-mkdir -p DEST
+    # recreate DEST, but do it carefully so that we don't replace things
+    # that would cause the native build to be forced to rebuild
+    mkdir -p DEST
 
-rm -rf DEST.tmp
-DESTDIR=`pwd`/DEST.tmp ninja install
-fix_dest_dir DEST.tmp/${CROSSPREFIX}
-# clang-tblgen doesn't get installed, which complicates things.  just copy it in.
-cp -u bin/clang-tblgen DEST.tmp/${CROSSPREFIX}/bin
+    rm -rf DEST.tmp
+    DESTDIR=`pwd`/DEST.tmp ninja install
+    fix_dest_dir DEST.tmp/${CROSSPREFIX}
+    # clang-tblgen doesn't get installed, which complicates things.  just copy it in.
+    cp -u bin/clang-tblgen DEST.tmp/${CROSSPREFIX}/bin
 
-rsync -a --delete -c DEST.tmp/ DEST/
-rm -rf DEST.tmp
+    rsync -a --delete -c DEST.tmp/ DEST/
+    rm -rf DEST.tmp
 
-cd ..
+    cd ..
+    echo "===="
+else
+    echo "==== Skipping cross compiler build ===="
+fi
 
-echo "===="
-echo "==== Native compiler build ===="
+if [ "$NO_BUILD_NATIVE" == "" ] ; then
+    echo "==== Native compiler build ===="
 
-mkdir -p ${BUILDDIR}-native
-cd ${BUILDDIR}-native
+    mkdir -p ${BUILDDIR}-native
+    cd ${BUILDDIR}-native
 
-# copy in the runtimes first, though we may not need them here
-mkdir -p lib32/clang/14.0.0/lib
-cp -r ../${BUILDDIR}-cross/DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib/* lib32/clang/14.0.0/lib
+    # copy in the runtimes first, though we may not need them here
+    mkdir -p lib32/clang/14.0.0/lib
+    cp -u -r ../${BUILDDIR}-cross/DEST/${CROSSPREFIX}/lib32/clang/14.0.0/lib/* lib32/clang/14.0.0/lib
 
-CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} \
-    ../irix/setup-irix-native.sh \
-    -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
-    -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+    CROSSDIR=../${BUILDDIR}-cross/DEST/${CROSSPREFIX} \
+        ../irix/setup-irix-native.sh \
+        -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
+        -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 
-ninja
+    ninja
 
-rm -rf DEST
-DESTDIR=`pwd`/DEST ninja install
-fix_dest_dir DEST/${NATIVEPREFIX}
+    rm -rf DEST
+    DESTDIR=`pwd`/DEST ninja install
+    fix_dest_dir DEST/${NATIVEPREFIX}
 
-cd ..
-
-echo "===="
+    cd ..
+    echo "===="
+else
+    echo "==== Skipping native compiler build ===="
+fi
 
 echo "Creating llvm-${LLVMVER}-irix-sgug.tar ..."
 tar -c -f llvm-${LLVMVER}-irix-sgug.tar -C build-clean-native/DEST usr
