@@ -834,6 +834,18 @@ size_t raw_fd_ostream::preferred_buffer_size() const {
 #elif !defined(__minix)
   // Minix has no st_blksize.
   assert(FD >= 0 && "File not yet open!");
+
+#if defined(__sgi)
+  // TODO IRIX FIXME we currently don't have __cxa_atexit on IRIX,
+  // so use atexit; but we're limited to 32 entries.  The destructor
+  // that flushes this gets added way beyond that, and so never gets
+  // called.  The end result is that "clang -print-prog-name=ld > FOO"
+  // ends up with an empty FOO.  We hack around this to never buffer
+  // stdout/stderr, though this could presumably bite us for other fds too.
+  if (FD == 1 || FD == 2)
+    return 0;
+#endif
+
   struct stat statbuf;
   if (fstat(FD, &statbuf) != 0)
     return 0;
