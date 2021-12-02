@@ -70,14 +70,19 @@ __asm__(".pushsection .init,\"ax\",@progbits\n\t"
     "call " __USER_LABEL_PREFIX__ "__do_init\n\t"
     ".popsection");
 #elif defined(__sgi)
-void __attribute__((used)) _init() {
+// IRIX crt1.o/crtn.o begin and end an __istart function
+// in the .init section, which gets called from __start.
+// We want our own DT_INIT/DT_FINI, so we define an _init
+// and _fini, which the dynamic linker will call before
+// it calls __start -- and more importantly will call
+// for shared libraries, unlike __istart.
+void
+    __attribute__((section(".gcc_init")))
+    __attribute__((used))
+_init()
+{
   __do_init();
 }
-#elif defined(__sgi_nope)
-__asm__(".pushsection .init,\"ax\",@progbits\n\t"
-    "jal " __USER_LABEL_PREFIX__ "__do_init\n\t"
-    "nop\n\t"
-    ".popsection");
 #else
 #error "crtbegin without .init_fini array unimplemented for this architecture"
 #endif // CRT_HAS_INITFINI_ARRAY
@@ -132,14 +137,13 @@ __asm__(".pushsection .fini,\"ax\",@progbits\n\t"
     "call " __USER_LABEL_PREFIX__ "__do_fini\n\t"
     ".popsection");
 #elif defined(__sgi)
-void __attribute__((used)) _fini() {
+void
+    __attribute__((section(".gcc_fini")))
+    __attribute__((used))
+_fini()
+{
   __do_fini();
 }
-#elif defined(__sgi_nope)
-__asm__(".pushsection .fini,\"ax\",@progbits\n\t"
-    "jal " __USER_LABEL_PREFIX__ "__do_fini\n\t"
-    "nop\n\t"
-    ".popsection");
 #else
 #error "crtbegin without .init_fini array unimplemented for this architecture"
 #endif  // CRT_HAS_INIT_FINI_ARRAY
