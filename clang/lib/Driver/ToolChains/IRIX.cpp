@@ -218,6 +218,9 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-z");
   CmdArgs.push_back("norelro");
 
+  // Always put a build-id; RPM really would like one for its tools
+  CmdArgs.push_back("--build-id");
+
   CmdArgs.push_back("--eh-frame-hdr");
 
   if (Args.hasArg(options::OPT_static)) {
