@@ -116,7 +116,7 @@ typedef	__int64_t	fpos64_t;
 __SGI_LIBC_BEGIN_NAMESPACE_STD
 #ifndef _VA_LIST_
 #define _VA_LIST_
-typedef __gnuc_va_list va_list;
+typedef __builtin_va_list va_list;
 #endif /* !_VA_LIST_ */
 __SGI_LIBC_END_NAMESPACE_STD
 
@@ -285,11 +285,11 @@ __SGI_LIBC_END_NAMESPACE_STD
 #if _NO_XOPEN5
 extern int	vsnprintf(char * __restrict,
 			__SGI_LIBC_NAMESPACE_QUALIFIER size_t,
-			const char * __restrict, __gnuc_va_list);
+			const char * __restrict, __builtin_va_list);
 #else
 extern int	_xpg5_vsnprintf(char * __restrict,
 			__SGI_LIBC_NAMESPACE_QUALIFIER size_t,
-			const char * __restrict, __gnuc_va_list);
+			const char * __restrict, __builtin_va_list);
 /* The Standard behavior is required even if a user #undefs the vsnprintf macro */
 /*REFERENCED*/
 static int
@@ -333,12 +333,12 @@ __SGI_LIBC_BEGIN_NAMESPACE_STD
 extern int	sprintf(char * __restrict, const char * __restrict, ...);
 /* SCANFLIKE2 */
 extern int	sscanf(const char * __restrict, const char * __restrict, ...);
-extern int	vfprintf(FILE * __restrict, const char * __restrict, __gnuc_va_list);
-extern int	vprintf(const char * __restrict, __gnuc_va_list);
+extern int	vfprintf(FILE * __restrict, const char * __restrict, __builtin_va_list);
+extern int	vprintf(const char * __restrict, __builtin_va_list);
 __SGI_LIBC_END_NAMESPACE_STD
 
 __SGI_LIBC_BEGIN_NAMESPACE_STD
-extern int	vsprintf(char * __restrict, const char * __restrict, __gnuc_va_list);
+extern int	vsprintf(char * __restrict, const char * __restrict, __builtin_va_list);
 __SGI_LIBC_END_NAMESPACE_STD
 #if defined(__INLINE_INTRINSICS) && _NO_XOPEN4 && _NO_XOPEN5
 #if (defined(_COMPILER_VERSION) && (_COMPILER_VERSION >= 400))
