@@ -2,7 +2,7 @@
 %global min_ver 0
 %global patch_ver 0
 #.global rc_ver 0
-%global pre_ver 3
+%global pre_ver 4
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}
@@ -210,6 +210,7 @@ echo LIB64DIR %{lib64dir}
 
 %files -n clang
 %{_bindir}/clang*
+%{_bindir}/mips64-sgi-irix6.5*clang*
 %{_bindir}/run-clang-tidy
 %{_bindir}/git-clang-format
 %{_libdir}/clang/%{maj_ver}.%{min_ver}.%{patch_ver}
