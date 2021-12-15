@@ -2,7 +2,8 @@
 %global min_ver 0
 %global patch_ver 0
 #.global rc_ver 0
-%global pre_ver 4
+%global pre_ver 5
+%global rel_ver 2
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}
@@ -11,7 +12,7 @@
 
 Name:           llvm
 Version:    	%{maj_ver}.%{min_ver}.%{patch_ver}%{?rc_ver:~rc%{rc_ver}}%{?pre_ver:~pre%{pre_ver}}
-Release:        1%{?dist}
+Release:        %{rel_ver}%{?dist}
 Summary:	    The Low Level Virtual Machine
 
 License:        NCSA

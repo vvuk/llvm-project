@@ -8,6 +8,10 @@
 
 #include <stddef.h>
 
+#ifdef __sgi
+#include <pthread.h>
+#endif
+
 __attribute__((visibility("hidden"))) void *__dso_handle = &__dso_handle;
 
 #ifdef EH_USE_FRAME_REGISTRY
@@ -26,7 +30,10 @@ static fp __CTOR_LIST__[]
 extern fp __CTOR_LIST_END__[];
 #endif
 
+// This is declared here
+#ifndef __sgi
 extern void __cxa_finalize(void *) __attribute__((weak));
+#endif
 
 static void __attribute__((used)) __do_init() {
   static _Bool __initialized;
@@ -91,6 +98,91 @@ _init()
 static fp __DTOR_LIST__[]
     __attribute__((section(".dtors"), aligned(sizeof(fp)))) = {(fp)-1};
 extern fp __DTOR_LIST_END__[];
+#endif
+
+#ifdef __sgi
+/*
+ * On IRIX, we'd like to have __cxa_atexit since the OS atexit has the
+ * standard POSIX 32 item limit.  We implement a hacky version here.
+ */
+typedef void (*__cxa_atexit_fn)(void *);
+
+// TODO make this more optimal; maybe have a smaller initial value,
+// and then a bigger growth value
+#define __CXA_ATEXIT_NUM 256
+struct __cxa_atexit_chunk {
+    int count;
+    struct __cxa_atexit_chunk *next;
+    __cxa_atexit_fn funs[__CXA_ATEXIT_NUM];
+    void *args[__CXA_ATEXIT_NUM];
+    void *dsos[__CXA_ATEXIT_NUM];
+};
+
+// Delcare some things from libc that we may use, if they're available.
+void* malloc(size_t size) __attribute__((weak));
+void free(void *ptr) __attribute__((weak));
+int pthread_mutex_lock(pthread_mutex_t *) __attribute__((weak));
+int pthread_mutex_unlock(pthread_mutex_t *) __attribute__((weak));
+
+static __attribute__((visibility("hidden"))) struct __cxa_atexit_chunk  __cxa_atexit_list_init = { 0 };
+static __attribute__((visibility("hidden"))) struct __cxa_atexit_chunk *__cxa_atexit_list = &__cxa_atexit_list_init;
+static __attribute__((visibility("hidden"))) pthread_mutex_t            __cxa_atexit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// __cxa_atexit needs to be safe to call concurrently.  We're going to assume
+// that this is not performance critical and will just use a regular pthread mutex.
+// We should really assert that we're never called with a NULL dso.
+int __cxa_atexit(void (*func)(void *), void *arg, void *dso) {
+    if (pthread_mutex_lock && pthread_mutex_lock(&__cxa_atexit_mutex) != 0)
+        return -1;
+
+    if (__cxa_atexit_list->count == __CXA_ATEXIT_NUM) {
+        // if we can't malloc, we can't add more entries
+        if (!malloc) {
+            if (pthread_mutex_unlock)
+                pthread_mutex_unlock(&__cxa_atexit_mutex);
+            return -1;
+        }
+
+        struct __cxa_atexit_chunk *new_chunk = (struct __cxa_atexit_chunk *)
+            malloc(sizeof(struct __cxa_atexit_chunk));
+        if (!new_chunk)
+            return -1;
+        new_chunk->count = 0;
+        new_chunk->next = __cxa_atexit_list;
+        __cxa_atexit_list = new_chunk;
+    }
+    const int index = __cxa_atexit_list->count++;
+    __cxa_atexit_list->funs[index] = func;
+    __cxa_atexit_list->args[index] = arg;
+    __cxa_atexit_list->dsos[index] = dso;
+
+    if (pthread_mutex_unlock)
+        pthread_mutex_unlock(&__cxa_atexit_mutex);
+
+    return 0;
+}
+
+void __cxa_finalize(void *dso) {
+    struct __cxa_atexit_chunk *chunk = __cxa_atexit_list;
+    while (chunk) {
+        for (int i = chunk->count-1; i >= 0; i--) {
+            // TODO: any dso == NULL calls will get cleared on the first
+            // shlib unload, when these should be treated like atexit().
+            // Not sure if that's correct?
+            if (chunk->dsos[i] == NULL || chunk->dsos[i] == dso)
+            {
+                chunk->funs[i](chunk->args[i]);
+                chunk->dsos[i] = (void*) -1;
+            }
+        }
+        struct __cxa_atexit_chunk *next = chunk->next;
+        //if (free && next) free(chunk); // initial chunk is static
+        chunk = next;
+    }
+
+    //__cxa_atexit_list = &__cxa_atexit_list_init;
+    //__cxa_atexit_list->count = 0;
+}
 #endif
 
 static void __attribute__((used)) __do_fini() {
