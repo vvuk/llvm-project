@@ -2,8 +2,8 @@
 %global min_ver 0
 %global patch_ver 0
 #.global rc_ver 0
-%global pre_ver 5
-%global rel_ver 2
+%global pre_ver 6
+%global rel_ver 1
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}

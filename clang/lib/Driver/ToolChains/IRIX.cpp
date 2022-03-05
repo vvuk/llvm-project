@@ -256,14 +256,13 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  if (!Args.hasArg(options::OPT_nostartfiles)) {
-    // from IRIX
+  if (!Args.hasArg(options::OPT_nostartfiles) && !Args.hasArg(options::OPT_nostdlib)) {
+    // from IRIX; only for non-shared objects.  Defines __start and a few friends.
     if (!Args.hasArg(options::OPT_shared))
       CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath("crt1.o")));
 
-    // compiler-rt CRT
-    if (!Args.hasArg(options::OPT_static))
-      CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtbegin", ToolChain::FT_Object));
+    // Our compiler-rt CRT; constains ctor/dtor initializers, and for IRIX, our __cxa_finalize
+    CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtbegin", ToolChain::FT_Object));
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
@@ -331,10 +330,9 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   if (!didBuiltins)
     CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "builtins", ToolChain::FT_Static));
 
-  if (!Args.hasArg(options::OPT_nostartfiles)) {
+  if (!Args.hasArg(options::OPT_nostartfiles) && !Args.hasArg(options::OPT_nostdlib)) {
     // compiler-rt CRT
-    if (!Args.hasArg(options::OPT_static))
-      CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtend", ToolChain::FT_Object));
+    CmdArgs.push_back(ToolChain.getCompilerRTArgString(Args, "crtend", ToolChain::FT_Object));
 
     // from IRIX
     if (!Args.hasArg(options::OPT_shared))
