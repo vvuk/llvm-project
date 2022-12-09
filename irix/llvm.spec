@@ -1,8 +1,8 @@
 %global maj_ver 14
 %global min_ver 0
-%global patch_ver 0
+%global patch_ver 6
 #.global rc_ver 0
-%global pre_ver 6
+#%global pre_ver 6
 %global rel_ver 1
 
 %global pkg_bindir %{_bindir}
