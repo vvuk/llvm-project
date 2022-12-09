@@ -1842,7 +1842,7 @@ static void fixupLinkerSymbols() {
     s = symtab->find("__rld_obj_head");
     if (s && in.mipsRldMap) {
         s->replace(Defined{nullptr, "__rld_obj_head", STB_GLOBAL, STV_DEFAULT, STT_OBJECT,
-          in.mipsRldMap->getVA(0), uint64_t(config->wordsize), in.mipsRldMap});
+          in.mipsRldMap->getVA(0), uint64_t(config->wordsize), in.mipsRldMap.get()});
         s->inDynamicList = true;
     }
 

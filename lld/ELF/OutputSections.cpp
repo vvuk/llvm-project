@@ -653,7 +653,7 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
 void OutputSection::precomputeDynRelValues(uint8_t *bufStart) {
   assert(config->osabi == ELFOSABI_IRIX);
   assert(type == SHT_REL || type == SHT_RELA);
-  std::vector<InputSection *> sections = getInputSections(this);
+  SmallVector<InputSection *, 0> sections = getInputSections(*this);
   const bool dump_relocs = getenv("DUMP_RELOCS") != nullptr;
   parallelForEachN(0, sections.size(), [&](size_t i) {
     const auto *sec = dyn_cast<RelocationBaseSection>(sections[i]);

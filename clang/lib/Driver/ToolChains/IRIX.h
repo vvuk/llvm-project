@@ -38,7 +38,7 @@ public:
     return false;
   }
   bool isPICDefault() const override { return true; }
-  bool isPIEDefault() const override { return false; }
+  bool isPIEDefault(const llvm::opt::ArgList &Args) const override { return false; }
   bool isPICDefaultForced() const override { return false; }
   llvm::DebuggerKind getDefaultDebuggerTuning() const override {
     // DBX is the wrong thing here -- setting DBX turns off pubnames support with IRIX dbx wants

@@ -2,7 +2,9 @@
 
 set -e
 
-RELEASE="-DCMAKE_BUILD_TYPE=Release"
+: "${BUILDTYPE:=Release}"
+: "${CROSSBUILDTYPE=$BUILDTYPE}"
+: "${NATIVEBUILDTYPE=$BUILDTYPE}"
 
 LLVMDIR="`dirname $0`/.."
 cd $LLVMDIR
@@ -38,6 +40,7 @@ echo "   BUILDDIR = ${BUILDDIR}"
 echo "Location of IRIX root filesystem:"
 echo "   IRIXROOT = ${IRIXROOT}"
 echo ""
+echo $"${CROSSBUILDTYPE} ${NATIVEBUILDTYPE}"
 
 if [ ! -f ${IRIXROOT}/lib32/libc.so.1 ] ; then
     echo "ERROR: Expected to find IRIX root in ${IRIXROOT} (missing ${IRIXROOT}/lib32/libc.so.1)"
@@ -106,7 +109,7 @@ if [ "$NO_BUILD_CROSS" == "" ] ; then
     mkdir -p ${BUILDDIR}-cross
     cd ${BUILDDIR}-cross
 
-    ../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX} ${RELEASE}
+    ../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX} -DCMAKE_BUILD_TYPE=${CROSSBUILDTYPE}
     # Build clang first so we can build the CRT
     ninja bin/clang
 
@@ -150,7 +153,7 @@ if [ "$NO_BUILD_NATIVE" == "" ] ; then
         -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
         -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 \
         -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 \
-        ${RELEASE} \
+        -DCMAKE_BUILD_TYPE=${NATIVEBUILDTYPE} \
         -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
 
     ninja

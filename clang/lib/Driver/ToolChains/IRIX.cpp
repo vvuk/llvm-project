@@ -191,7 +191,7 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   const Driver &D = ToolChain.getDriver();
   const bool IsPIE =
       !Args.hasArg(options::OPT_shared) &&
-      (Args.hasArg(options::OPT_pie) || ToolChain.isPIEDefault());
+      (Args.hasArg(options::OPT_pie) || ToolChain.isPIEDefault(Args));
 
   ArgStringList CmdArgs;
 
@@ -208,11 +208,6 @@ void irix::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (IsPIE)
     CmdArgs.push_back("-pie");
-
-  if (ToolChain.isNoExecStackDefault()) {
-    CmdArgs.push_back("-z");
-    CmdArgs.push_back("noexecstack");
-  }
 
   // IRIX doesn't understand this, so let's not confuse matters
   CmdArgs.push_back("-z");

@@ -183,6 +183,7 @@ static bool isReserved(InputSectionBase *sec) {
     StringRef s = sec->name;
     return s == ".init" || s == ".fini" || s.startswith(".init_array") ||
            s == ".jcr" || s.startswith(".ctors") || s.startswith(".dtors")
+           || s.startswith(".MIPS.events")
            // TODO IRIX unclear why we need to preserve these
            || s == ".gcc_init" || s == ".gcc_fini";
   }

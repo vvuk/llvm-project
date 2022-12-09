@@ -931,7 +931,7 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
     }
 
     std::string msg = getLocation(offset) + ": has non-ABS relocation " +
-                      toString(type) + " against symbol '" + toString(sym) +
+                      toString(type) + " - " + toString(expr) + " against symbol '" + toString(sym) +
                       "'";
     if (expr != R_PC && expr != R_ARM_PCA) {
       error(msg);
@@ -954,6 +954,7 @@ void InputSection::relocateNonAlloc(uint8_t *buf, ArrayRef<RelTy> rels) {
     target.relocateNoSym(
       bufLoc, type,
       SignExtend64<bits>(sym.getVA(addend - offset - outSecOff)));
+  }
 }
 
 // This is used when '-r' is given.
@@ -978,7 +979,8 @@ void InputSectionBase::relocate(uint8_t *buf, uint8_t *bufEnd) {
   if ((flags & SHF_EXECINSTR) && LLVM_UNLIKELY(getFile<ELFT>()->splitStack))
     adjustSplitStackFunctionPrologues<ELFT>(buf, bufEnd);
 
-  if (flags & SHF_ALLOC) {
+  // TODO IRIX we want to check for MIPS ABI
+  if (flags & SHF_ALLOC || LLVM_UNLIKELY(config->osabi == ELFOSABI_IRIX && type == SHT_MIPS_EVENTS)) {
     relocateAlloc(buf, bufEnd);
     return;
   }
@@ -996,7 +998,7 @@ void InputSectionBase::relocate(uint8_t *buf, uint8_t *bufEnd) {
 }
 
 void InputSectionBase::relocateAlloc(uint8_t *buf, uint8_t *bufEnd) {
-  assert(flags & SHF_ALLOC);
+  assert(flags & SHF_ALLOC || LLVM_UNLIKELY(config->osabi == ELFOSABI_IRIX && type == SHT_MIPS_EVENTS));
   const unsigned bits = config->wordsize * 8;
   const TargetInfo &target = *elf::target;
   uint64_t lastPPCRelaxedRelocOff = UINT64_C(-1);
