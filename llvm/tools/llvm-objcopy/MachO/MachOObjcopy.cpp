@@ -20,6 +20,7 @@
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileOutputBuffer.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/SmallVectorMemoryBuffer.h"
 
 using namespace llvm;
@@ -316,6 +317,52 @@ static Error addSection(StringRef SecName, StringRef Filename, Object &Obj) {
   return Error::success();
 }
 
+static Expected<Section &> findSection(StringRef SecName, Object &O) {
+  StringRef SegName;
+  std::tie(SegName, SecName) = SecName.split(",");
+  auto FoundSeg =
+      llvm::find_if(O.LoadCommands, [SegName](const LoadCommand &LC) {
+        return LC.getSegmentName() == SegName;
+      });
+  if (FoundSeg == O.LoadCommands.end())
+    return createStringError(errc::invalid_argument,
+                             "could not find segment with name '%s'",
+                             SegName.str().c_str());
+  auto FoundSec = llvm::find_if(FoundSeg->Sections,
+                                [SecName](const std::unique_ptr<Section> &Sec) {
+                                  return Sec->Sectname == SecName;
+                                });
+  if (FoundSec == FoundSeg->Sections.end())
+    return createStringError(errc::invalid_argument,
+                             "could not find section with name '%s'",
+                             SecName.str().c_str());
+
+  assert(FoundSec->get()->CanonicalName == (SegName + "," + SecName).str());
+  return *FoundSec->get();
+}
+
+static Error updateSection(StringRef SecName, StringRef Filename, Object &O) {
+  Expected<Section &> SecToUpdateOrErr = findSection(SecName, O);
+
+  if (!SecToUpdateOrErr)
+    return SecToUpdateOrErr.takeError();
+  Section &Sec = *SecToUpdateOrErr;
+
+  ErrorOr<std::unique_ptr<MemoryBuffer>> BufOrErr =
+      MemoryBuffer::getFile(Filename);
+  if (!BufOrErr)
+    return createFileError(Filename, errorCodeToError(BufOrErr.getError()));
+  std::unique_ptr<MemoryBuffer> Buf = std::move(*BufOrErr);
+
+  if (Buf->getBufferSize() > Sec.Size)
+    return createStringError(
+        errc::invalid_argument,
+        "new section cannot be larger than previous section");
+  Sec.Content = O.NewSectionsContents.save(Buf->getBuffer());
+  Sec.Size = Sec.Content.size();
+  return Error::success();
+}
+
 // isValidMachOCannonicalName returns success if Name is a MachO cannonical name
 // ("<segment>,<section>") and lengths of both segment and section names are
 // valid.
@@ -373,6 +420,16 @@ static Error handleArgs(const CommonConfig &Config,
       return E;
   }
 
+  for (const auto &Flag : Config.UpdateSection) {
+    StringRef SectionName;
+    StringRef FileName;
+    std::tie(SectionName, FileName) = Flag.split('=');
+    if (Error E = isValidMachOCannonicalName(SectionName))
+      return E;
+    if (Error E = updateSection(SectionName, FileName, Obj))
+      return E;
+  }
+
   if (Error E = processLoadCommands(MachOConfig, Obj))
     return E;
 
@@ -387,6 +444,11 @@ Error objcopy::macho::executeObjcopyOnBinary(const CommonConfig &Config,
   Expected<std::unique_ptr<Object>> O = Reader.create();
   if (!O)
     return createFileError(Config.InputFilename, O.takeError());
+
+  if (O->get()->Header.FileType == MachO::HeaderFileType::MH_PRELOAD)
+    return createStringError(std::errc::not_supported,
+                             "%s: MH_PRELOAD files are not supported",
+                             Config.InputFilename.str().c_str());
 
   if (Error E = handleArgs(Config, MachOConfig, **O))
     return createFileError(Config.InputFilename, std::move(E));
@@ -404,7 +466,8 @@ Error objcopy::macho::executeObjcopyOnBinary(const CommonConfig &Config,
     PageSize = 4096;
   }
 
-  MachOWriter Writer(**O, In.is64Bit(), In.isLittleEndian(), PageSize, Out);
+  MachOWriter Writer(**O, In.is64Bit(), In.isLittleEndian(),
+                     sys::path::filename(Config.OutputFilename), PageSize, Out);
   if (auto E = Writer.finalize())
     return E;
   return Writer.write();
@@ -469,9 +532,8 @@ Error objcopy::macho::executeObjcopyOnMachOUniversalBinary(
                                          **ObjOrErr, MemStream))
       return E;
 
-    std::unique_ptr<MemoryBuffer> MB =
-        std::make_unique<SmallVectorMemoryBuffer>(std::move(Buffer),
-                                                  ArchFlagName);
+    auto MB = std::make_unique<SmallVectorMemoryBuffer>(
+        std::move(Buffer), ArchFlagName, /*RequiresNullTerminator=*/false);
     Expected<std::unique_ptr<Binary>> BinaryOrErr = object::createBinary(*MB);
     if (!BinaryOrErr)
       return BinaryOrErr.takeError();

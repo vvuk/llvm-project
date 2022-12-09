@@ -115,7 +115,7 @@
 ; PASSIVE-PIC-NEXT:    Functions:
 ; PASSIVE-PIC-NEXT:      - Index:           0
 ; PASSIVE-PIC-NEXT:        Locals:          []
-; PASSIVE-PIC-NEXT:        Body:            10030B
+; PASSIVE-PIC-NEXT:        Body:            0B
 ; PASSIVE-PIC-NEXT:      - Index:           1
 ; PASSIVE-PIC-NEXT:        Locals:          []
 ; PASSIVE-PIC-NEXT:        Body:            0B
@@ -187,6 +187,15 @@
 ; DIS-NEXT:            i32.const       0
 ; DIS-NEXT:            i32.const       20
 ; DIS-NEXT:            memory.init     1, 0
+; NOPIC-DIS-NEXT:      [[PTR]].const   1060
+; PIC-DIS-NEXT:        [[PTR]].const   36
+; PIC-DIS-NEXT:        global.get      1
+; PIC-DIS-NEXT:        [[PTR]].add
+; DIS-NEXT:            i32.const       0
+; DIS-NEXT:            i32.const       10000
+; DIS-NEXT:            memory.fill     0
+
+; PIC-DIS-NEXT:        call 3
 
 ; NOPIC-DIS-NEXT:      [[PTR]].const   11060
 ; PIC-DIS-NEXT:        local.get       0

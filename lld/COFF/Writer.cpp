@@ -485,7 +485,7 @@ static bool createThunks(OutputSection *os, int margin) {
     MutableArrayRef<coff_relocation> newRelocs;
     if (originalRelocs.data() == curRelocs.data()) {
       newRelocs = makeMutableArrayRef(
-          bAlloc.Allocate<coff_relocation>(originalRelocs.size()),
+          bAlloc().Allocate<coff_relocation>(originalRelocs.size()),
           originalRelocs.size());
     } else {
       newRelocs = makeMutableArrayRef(
@@ -1090,18 +1090,14 @@ void Writer::removeUnusedSections() {
     // later. Only remove sections that have no Chunks at all.
     return s->chunks.empty();
   };
-  ctx.outputSections.erase(std::remove_if(ctx.outputSections.begin(),
-                                          ctx.outputSections.end(), isUnused),
-                           ctx.outputSections.end());
+  llvm::erase_if(ctx.outputSections, isUnused);
 }
 
 // The Windows loader doesn't seem to like empty sections,
 // so we remove them if any.
 void Writer::removeEmptySections() {
   auto isEmpty = [](OutputSection *s) { return s->getVirtualSize() == 0; };
-  ctx.outputSections.erase(std::remove_if(ctx.outputSections.begin(),
-                                          ctx.outputSections.end(), isEmpty),
-                           ctx.outputSections.end());
+  llvm::erase_if(ctx.outputSections, isEmpty);
 }
 
 void Writer::assignOutputSectionIndices() {
@@ -1215,6 +1211,12 @@ void Writer::createSymbolAndStringTable() {
         if (!d || d->writtenToSymtab)
           continue;
         d->writtenToSymtab = true;
+        if (auto *dc = dyn_cast_or_null<DefinedCOFF>(d)) {
+          COFFSymbolRef symRef = dc->getCOFFSymbol();
+          if (symRef.isSectionDefinition() ||
+              symRef.getStorageClass() == COFF::IMAGE_SYM_CLASS_LABEL)
+            continue;
+        }
 
         if (Optional<coff_symbol16> sym = createSymbol(d))
           outputSymtab.push_back(*sym);
@@ -1244,7 +1246,7 @@ void Writer::mergeSections() {
     if (p.first == toName)
       continue;
     StringSet<> names;
-    while (1) {
+    while (true) {
       if (!names.insert(toName).second)
         fatal("/merge: cycle found for section '" + p.first + "'");
       auto i = config->merge.find(toName);

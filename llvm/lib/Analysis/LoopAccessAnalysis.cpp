@@ -519,8 +519,7 @@ public:
   AccessAnalysis(Loop *TheLoop, AAResults *AA, LoopInfo *LI,
                  MemoryDepChecker::DepCandidates &DA,
                  PredicatedScalarEvolution &PSE)
-      : TheLoop(TheLoop), AST(*AA), LI(LI), DepCands(DA),
-        IsRTCheckAnalysisNeeded(false), PSE(PSE) {}
+      : TheLoop(TheLoop), AST(*AA), LI(LI), DepCands(DA), PSE(PSE) {}
 
   /// Register a load  and whether it is only read from.
   void addLoad(MemoryLocation &Loc, bool IsReadOnly) {
@@ -620,7 +619,7 @@ private:
   /// memcheck analysis without dependency checking
   /// (i.e. FoundNonConstantDistanceDependence), isDependencyCheckNeeded is
   /// cleared while this remains set if we have potentially dependent accesses.
-  bool IsRTCheckAnalysisNeeded;
+  bool IsRTCheckAnalysisNeeded = false;
 
   /// The SCEV predicate containing all the SCEV-related assumptions.
   PredicatedScalarEvolution &PSE;
@@ -664,6 +663,29 @@ static bool isNoWrap(PredicatedScalarEvolution &PSE,
     return true;
 
   return false;
+}
+
+static void visitPointers(Value *StartPtr, const Loop &InnermostLoop,
+                          function_ref<void(Value *)> AddPointer) {
+  SmallPtrSet<Value *, 8> Visited;
+  SmallVector<Value *> WorkList;
+  WorkList.push_back(StartPtr);
+
+  while (!WorkList.empty()) {
+    Value *Ptr = WorkList.pop_back_val();
+    if (!Visited.insert(Ptr).second)
+      continue;
+    auto *PN = dyn_cast<PHINode>(Ptr);
+    // SCEV does not look through non-header PHIs inside the loop. Such phis
+    // can be analyzed by adding separate accesses for each incoming pointer
+    // value.
+    if (PN && InnermostLoop.contains(PN->getParent()) &&
+        PN->getParent() != InnermostLoop.getHeader()) {
+      for (const Use &Inc : PN->incoming_values())
+        WorkList.push_back(Inc);
+    } else
+      AddPointer(Ptr);
+  }
 }
 
 bool AccessAnalysis::createCheckForAccess(RuntimePointerChecking &RtCheck,
@@ -1032,13 +1054,10 @@ int64_t llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
                            bool ShouldCheckWrap) {
   Type *Ty = Ptr->getType();
   assert(Ty->isPointerTy() && "Unexpected non-ptr");
-  unsigned AddrSpace = Ty->getPointerAddressSpace();
 
-  // Make sure we're not accessing an aggregate type.
-  // TODO: Why? This doesn't make any sense.
-  if (AccessTy->isAggregateType()) {
-    LLVM_DEBUG(dbgs() << "LAA: Bad stride - Not a pointer to a scalar type"
-                      << *Ptr << "\n");
+  if (isa<ScalableVectorType>(AccessTy)) {
+    LLVM_DEBUG(dbgs() << "LAA: Bad stride - Scalable object: " << *AccessTy
+                      << "\n");
     return 0;
   }
 
@@ -1068,6 +1087,7 @@ int64_t llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   // An getelementptr without an inbounds attribute and unit stride would have
   // to access the pointer value "0" which is undefined behavior in address
   // space 0, therefore we can also vectorize this case.
+  unsigned AddrSpace = Ty->getPointerAddressSpace();
   bool IsInBoundsGEP = isInBoundsGep(Ptr);
   bool IsNoWrapAddRec = !ShouldCheckWrap ||
     PSE.hasNoOverflow(Ptr, SCEVWrapPredicate::IncrementNUSW) ||
@@ -1101,7 +1121,8 @@ int64_t llvm::getPtrStride(PredicatedScalarEvolution &PSE, Type *AccessTy,
   }
 
   auto &DL = Lp->getHeader()->getModule()->getDataLayout();
-  int64_t Size = DL.getTypeAllocSize(AccessTy);
+  TypeSize AllocSize = DL.getTypeAllocSize(AccessTy);
+  int64_t Size = AllocSize.getFixedSize();
   const APInt &APStepVal = C->getAPInt();
 
   // Huge step value - give up.
@@ -1261,29 +1282,6 @@ bool llvm::isConsecutiveAccess(Value *A, Value *B, const DataLayout &DL,
   Optional<int> Diff = getPointersDiff(ElemTyA, PtrA, ElemTyB, PtrB, DL, SE,
                                        /*StrictCheck=*/true, CheckType);
   return Diff && *Diff == 1;
-}
-
-static void visitPointers(Value *StartPtr, const Loop &InnermostLoop,
-                          function_ref<void(Value *)> AddPointer) {
-  SmallPtrSet<Value *, 8> Visited;
-  SmallVector<Value *> WorkList;
-  WorkList.push_back(StartPtr);
-
-  while (!WorkList.empty()) {
-    Value *Ptr = WorkList.pop_back_val();
-    if (!Visited.insert(Ptr).second)
-      continue;
-    auto *PN = dyn_cast<PHINode>(Ptr);
-    // SCEV does not look through non-header PHIs inside the loop. Such phis
-    // can be analyzed by adding separate accesses for each incoming pointer
-    // value.
-    if (PN && InnermostLoop.contains(PN->getParent()) &&
-        PN->getParent() != InnermostLoop.getHeader()) {
-      for (const Use &Inc : PN->incoming_values())
-        WorkList.push_back(Inc);
-    } else
-      AddPointer(Ptr);
-  }
 }
 
 void MemoryDepChecker::addAccess(StoreInst *SI) {
@@ -1568,11 +1566,12 @@ MemoryDepChecker::isDependent(const MemAccessInfo &A, unsigned AIdx,
 
   auto &DL = InnermostLoop->getHeader()->getModule()->getDataLayout();
   uint64_t TypeByteSize = DL.getTypeAllocSize(ATy);
+  bool HasSameSize =
+      DL.getTypeStoreSizeInBits(ATy) == DL.getTypeStoreSizeInBits(BTy);
   uint64_t Stride = std::abs(StrideAPtr);
   const SCEVConstant *C = dyn_cast<SCEVConstant>(Dist);
   if (!C) {
-    if (!isa<SCEVCouldNotCompute>(Dist) &&
-        TypeByteSize == DL.getTypeAllocSize(BTy) &&
+    if (!isa<SCEVCouldNotCompute>(Dist) && HasSameSize &&
         isSafeDependenceDistance(DL, *(PSE.getSE()),
                                  *(PSE.getBackedgeTakenCount()), *Dist, Stride,
                                  TypeByteSize))
@@ -1587,7 +1586,7 @@ MemoryDepChecker::isDependent(const MemAccessInfo &A, unsigned AIdx,
   int64_t Distance = Val.getSExtValue();
 
   // Attempt to prove strided accesses independent.
-  if (std::abs(Distance) > 0 && Stride > 1 && ATy == BTy &&
+  if (std::abs(Distance) > 0 && Stride > 1 && HasSameSize &&
       areStridedAccessesIndependent(std::abs(Distance), Stride, TypeByteSize)) {
     LLVM_DEBUG(dbgs() << "LAA: Strided accesses are independent\n");
     return Dependence::NoDep;
@@ -1598,7 +1597,7 @@ MemoryDepChecker::isDependent(const MemAccessInfo &A, unsigned AIdx,
     bool IsTrueDataDependence = (AIsWrite && !BIsWrite);
     if (IsTrueDataDependence && EnableForwardingConflictDetection &&
         (couldPreventStoreLoadForward(Val.abs().getZExtValue(), TypeByteSize) ||
-         ATy != BTy)) {
+         !HasSameSize)) {
       LLVM_DEBUG(dbgs() << "LAA: Forward but may prevent st->ld forwarding\n");
       return Dependence::ForwardButPreventsForwarding;
     }
@@ -1608,21 +1607,19 @@ MemoryDepChecker::isDependent(const MemAccessInfo &A, unsigned AIdx,
   }
 
   // Write to the same location with the same size.
-  // Could be improved to assert type sizes are the same (i32 == float, etc).
   if (Val == 0) {
-    if (ATy == BTy)
+    if (HasSameSize)
       return Dependence::Forward;
     LLVM_DEBUG(
-        dbgs() << "LAA: Zero dependence difference but different types\n");
+        dbgs() << "LAA: Zero dependence difference but different type sizes\n");
     return Dependence::Unknown;
   }
 
   assert(Val.isStrictlyPositive() && "Expect a positive value");
 
-  if (ATy != BTy) {
-    LLVM_DEBUG(
-        dbgs()
-        << "LAA: ReadWrite-Write positive dependency with different types\n");
+  if (!HasSameSize) {
+    LLVM_DEBUG(dbgs() << "LAA: ReadWrite-Write positive dependency with "
+                         "different type sizes\n");
     return Dependence::Unknown;
   }
 
@@ -2246,10 +2243,7 @@ LoopAccessInfo::LoopAccessInfo(Loop *L, ScalarEvolution *SE,
                                DominatorTree *DT, LoopInfo *LI)
     : PSE(std::make_unique<PredicatedScalarEvolution>(*SE, *L)),
       PtrRtChecking(std::make_unique<RuntimePointerChecking>(SE)),
-      DepChecker(std::make_unique<MemoryDepChecker>(*PSE, L)), TheLoop(L),
-      NumLoads(0), NumStores(0), MaxSafeDepDistBytes(-1), CanVecMem(false),
-      HasConvergentOp(false),
-      HasDependenceInvolvingLoopInvariantAddress(false) {
+      DepChecker(std::make_unique<MemoryDepChecker>(*PSE, L)), TheLoop(L) {
   if (canAnalyzeLoop())
     analyzeLoop(AA, LI, TLI, DT);
 }

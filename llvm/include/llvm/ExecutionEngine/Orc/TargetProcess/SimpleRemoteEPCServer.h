@@ -63,7 +63,7 @@ public:
     friend class SimpleRemoteEPCServer;
 
   public:
-    SimpleRemoteEPCServer &server();
+    SimpleRemoteEPCServer &server() { return S; }
     StringMap<ExecutorAddr> &bootstrapSymbols() { return BootstrapSymbols; }
     std::vector<std::unique_ptr<ExecutorBootstrapService>> &services() {
       return Services;
@@ -104,6 +104,8 @@ public:
     if (!T)
       return T.takeError();
     Server->T = std::move(*T);
+    if (auto Err = Server->T->start())
+      return std::move(Err);
 
     // If transport creation succeeds then start up services.
     Server->Services = std::move(S.services());
@@ -149,9 +151,10 @@ private:
   shared::WrapperFunctionResult
   doJITDispatch(const void *FnTag, const char *ArgData, size_t ArgSize);
 
-  static shared::detail::CWrapperFunctionResult
-  jitDispatchEntry(void *DispatchCtx, const void *FnTag, const char *ArgData,
-                   size_t ArgSize);
+  static shared::CWrapperFunctionResult jitDispatchEntry(void *DispatchCtx,
+                                                         const void *FnTag,
+                                                         const char *ArgData,
+                                                         size_t ArgSize);
 
   uint64_t getNextSeqNo() { return NextSeqNo++; }
   void releaseSeqNo(uint64_t) {}

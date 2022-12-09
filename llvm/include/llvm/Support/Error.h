@@ -14,7 +14,6 @@
 #define LLVM_SUPPORT_ERROR_H
 
 #include "llvm-c/Error.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/Twine.h"
@@ -26,7 +25,6 @@
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
-#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
@@ -575,6 +573,16 @@ public:
   const_reference get() const {
     assertIsChecked();
     return const_cast<Expected<T> *>(this)->get();
+  }
+
+  /// Returns \a takeError() after moving the held T (if any) into \p V.
+  template <class OtherT>
+  Error moveInto(OtherT &Value,
+                 std::enable_if_t<std::is_assignable<OtherT &, T &&>::value> * =
+                     nullptr) && {
+    if (*this)
+      Value = std::move(get());
+    return takeError();
   }
 
   /// Check that this Expected<T> is an error of type ErrT.

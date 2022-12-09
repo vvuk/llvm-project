@@ -28,6 +28,7 @@
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/PointerUnion.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -202,8 +203,9 @@ bool TemplateParameterList::hasAssociatedConstraints() const {
 }
 
 bool TemplateParameterList::shouldIncludeTypeForArgument(
-    const TemplateParameterList *TPL, unsigned Idx) {
-  if (!TPL || Idx >= TPL->size())
+    const PrintingPolicy &Policy, const TemplateParameterList *TPL,
+    unsigned Idx) {
+  if (!TPL || Idx >= TPL->size() || Policy.AlwaysIncludeTypeForTemplateArgument)
     return true;
   const NamedDecl *TemplParam = TPL->getParam(Idx);
   if (const auto *ParamValueDecl =
@@ -1097,7 +1099,13 @@ FriendTemplateDecl::Create(ASTContext &Context, DeclContext *DC,
                            SourceLocation L,
                            MutableArrayRef<TemplateParameterList *> Params,
                            FriendUnion Friend, SourceLocation FLoc) {
-  return new (Context, DC) FriendTemplateDecl(DC, L, Params, Friend, FLoc);
+  TemplateParameterList **TPL = nullptr;
+  if (!Params.empty()) {
+    TPL = new (Context) TemplateParameterList *[Params.size()];
+    llvm::copy(Params, TPL);
+  }
+  return new (Context, DC)
+      FriendTemplateDecl(DC, L, TPL, Params.size(), Friend, FLoc);
 }
 
 FriendTemplateDecl *FriendTemplateDecl::CreateDeserialized(ASTContext &C,

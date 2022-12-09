@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
@@ -127,17 +128,28 @@ StringRef Operator::getExtraClassDeclaration() const {
   return def.getValueAsString(attr);
 }
 
+StringRef Operator::getExtraClassDefinition() const {
+  constexpr auto attr = "extraClassDefinition";
+  if (def.isValueUnset(attr))
+    return {};
+  return def.getValueAsString(attr);
+}
+
 const llvm::Record &Operator::getDef() const { return def; }
 
 bool Operator::skipDefaultBuilders() const {
   return def.getValueAsBit("skipDefaultBuilders");
 }
 
-auto Operator::result_begin() -> value_iterator { return results.begin(); }
+auto Operator::result_begin() const -> const_value_iterator {
+  return results.begin();
+}
 
-auto Operator::result_end() -> value_iterator { return results.end(); }
+auto Operator::result_end() const -> const_value_iterator {
+  return results.end();
+}
 
-auto Operator::getResults() -> value_range {
+auto Operator::getResults() const -> const_value_range {
   return {result_begin(), result_end()};
 }
 
@@ -278,9 +290,13 @@ auto Operator::getAttributes() const
   return {attribute_begin(), attribute_end()};
 }
 
-auto Operator::operand_begin() -> value_iterator { return operands.begin(); }
-auto Operator::operand_end() -> value_iterator { return operands.end(); }
-auto Operator::getOperands() -> value_range {
+auto Operator::operand_begin() const -> const_value_iterator {
+  return operands.begin();
+}
+auto Operator::operand_end() const -> const_value_iterator {
+  return operands.end();
+}
+auto Operator::getOperands() const -> const_value_range {
   return {operand_begin(), operand_end()};
 }
 
@@ -345,10 +361,9 @@ void Operator::populateTypeInferenceInfo(
       if (getArg(*mi).is<NamedAttribute *>()) {
         // TODO: Handle attributes.
         continue;
-      } else {
-        resultTypeMapping[i].emplace_back(*mi);
-        found = true;
       }
+      resultTypeMapping[i].emplace_back(*mi);
+      found = true;
     }
     return found;
   };
@@ -537,7 +552,7 @@ void Operator::populateOpStructure() {
     insert = [&](llvm::ListInit *traitList) {
       for (auto *traitInit : *traitList) {
         auto *def = cast<DefInit>(traitInit)->getDef();
-        if (def->isSubClassOf("OpTraitList")) {
+        if (def->isSubClassOf("TraitList")) {
           insert(def->getValueAsListInit("traits"));
           continue;
         }
@@ -597,7 +612,7 @@ auto Operator::getSameTypeAsResult(int index) const -> ArrayRef<ArgOrType> {
   return resultTypeMapping[index];
 }
 
-ArrayRef<llvm::SMLoc> Operator::getLoc() const { return def.getLoc(); }
+ArrayRef<SMLoc> Operator::getLoc() const { return def.getLoc(); }
 
 bool Operator::hasDescription() const {
   return def.getValue("description") != nullptr;
@@ -641,4 +656,80 @@ auto Operator::VariableDecoratorIterator::unwrap(llvm::Init *init)
 auto Operator::getArgToOperandOrAttribute(int index) const
     -> OperandOrAttribute {
   return attrOrOperandMapping[index];
+}
+
+// Helper to return the names for accessor.
+static SmallVector<std::string, 2>
+getGetterOrSetterNames(bool isGetter, const Operator &op, StringRef name) {
+  Dialect::EmitPrefix prefixType = op.getDialect().getEmitAccessorPrefix();
+  std::string prefix;
+  if (prefixType != Dialect::EmitPrefix::Raw)
+    prefix = isGetter ? "get" : "set";
+
+  SmallVector<std::string, 2> names;
+  bool rawToo = prefixType == Dialect::EmitPrefix::Both;
+
+  // Whether to skip generating prefixed form for argument. This just does some
+  // basic checks.
+  //
+  // There are a little bit more invasive checks possible for cases where not
+  // all ops have the trait that would cause overlap. For many cases here,
+  // renaming would be better (e.g., we can only guard in limited manner against
+  // methods from traits and interfaces here, so avoiding these in op definition
+  // is safer).
+  auto skip = [&](StringRef newName) {
+    bool shouldSkip = newName == "getAttributeNames" ||
+                      newName == "getAttributes" || newName == "getOperation" ||
+                      newName == "getType";
+    if (newName == "getOperands") {
+      // To reduce noise, skip generating the prefixed form and the warning if
+      // $operands correspond to single variadic argument.
+      if (op.getNumOperands() == 1 && op.getNumVariableLengthOperands() == 1)
+        return true;
+      shouldSkip = true;
+    }
+    if (newName == "getRegions") {
+      if (op.getNumRegions() == 1 && op.getNumVariadicRegions() == 1)
+        return true;
+      shouldSkip = true;
+    }
+    if (!shouldSkip)
+      return false;
+
+    // This note could be avoided where the final function generated would
+    // have been identical. But preferably in the op definition avoiding using
+    // the generic name and then getting a more specialize type is better.
+    PrintNote(op.getLoc(),
+              "Skipping generation of prefixed accessor `" + newName +
+                  "` as it overlaps with default one; generating raw form (`" +
+                  name + "`) still");
+    return true;
+  };
+
+  if (!prefix.empty()) {
+    names.push_back(
+        prefix + convertToCamelFromSnakeCase(name, /*capitalizeFirst=*/true));
+    // Skip cases which would overlap with default ones for now.
+    if (skip(names.back())) {
+      rawToo = true;
+      names.clear();
+    } else if (rawToo) {
+      LLVM_DEBUG(llvm::errs() << "WITH_GETTER(\"" << op.getQualCppClassName()
+                              << "::" << name << "\")\n"
+                              << "WITH_GETTER(\"" << op.getQualCppClassName()
+                              << "Adaptor::" << name << "\")\n";);
+    }
+  }
+
+  if (prefix.empty() || rawToo)
+    names.push_back(name.str());
+  return names;
+}
+
+SmallVector<std::string, 2> Operator::getGetterNames(StringRef name) const {
+  return getGetterOrSetterNames(/*isGetter=*/true, *this, name);
+}
+
+SmallVector<std::string, 2> Operator::getSetterNames(StringRef name) const {
+  return getGetterOrSetterNames(/*isGetter=*/false, *this, name);
 }

@@ -19,6 +19,7 @@
 #include "llvm/ADT/None.h"
 #include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/Sequence.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
@@ -755,6 +756,20 @@ public:
   using PredicateField =
       Bitfield::Element<Predicate, 0, 6, LAST_ICMP_PREDICATE>;
 
+  /// Returns the sequence of all FCmp predicates.
+  static auto FCmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_FCMP_PREDICATE,
+                              Predicate::LAST_FCMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
+  /// Returns the sequence of all ICmp predicates.
+  static auto ICmpPredicates() {
+    return enum_seq_inclusive(Predicate::FIRST_ICMP_PREDICATE,
+                              Predicate::LAST_ICMP_PREDICATE,
+                              force_iteration_on_noniterable_enum);
+  }
+
 protected:
   CmpInst(Type *ty, Instruction::OtherOps op, Predicate pred,
           Value *LHS, Value *RHS, const Twine &Name = "",
@@ -1325,33 +1340,23 @@ public:
   bool arg_empty() const { return arg_end() == arg_begin(); }
   unsigned arg_size() const { return arg_end() - arg_begin(); }
 
-  // Legacy API names that duplicate the above and will be removed once users
-  // are migrated.
-  iterator_range<User::op_iterator> arg_operands() {
-    return make_range(arg_begin(), arg_end());
-  }
-  iterator_range<User::const_op_iterator> arg_operands() const {
-    return make_range(arg_begin(), arg_end());
-  }
-  unsigned getNumArgOperands() const { return arg_size(); }
-
   Value *getArgOperand(unsigned i) const {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return getOperand(i);
   }
 
   void setArgOperand(unsigned i, Value *v) {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     setOperand(i, v);
   }
 
   /// Wrappers for getting the \c Use of a call argument.
   const Use &getArgOperandUse(unsigned i) const {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return User::getOperandUse(i);
   }
   Use &getArgOperandUse(unsigned i) {
-    assert(i < getNumArgOperands() && "Out of bounds!");
+    assert(i < arg_size() && "Out of bounds!");
     return User::getOperandUse(i);
   }
 
@@ -1388,10 +1393,13 @@ public:
   const Use &getCalledOperandUse() const { return Op<CalledOperandOpEndIdx>(); }
   Use &getCalledOperandUse() { return Op<CalledOperandOpEndIdx>(); }
 
-  /// Returns the function called, or null if this is an
-  /// indirect function invocation.
+  /// Returns the function called, or null if this is an indirect function
+  /// invocation or the function signature does not match the call signature.
   Function *getCalledFunction() const {
-    return dyn_cast_or_null<Function>(getCalledOperand());
+    if (auto *F = dyn_cast_or_null<Function>(getCalledOperand()))
+      if (F->getValueType() == getFunctionType())
+        return F;
+    return nullptr;
   }
 
   /// Return true if the callsite is an indirect call.
@@ -1518,13 +1526,13 @@ public:
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Adds the attribute to the indicated argument
   void addParamAttr(unsigned ArgNo, Attribute Attr) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.addParamAttribute(getContext(), ArgNo, Attr);
   }
 
@@ -1539,7 +1547,7 @@ public:
   }
 
   /// Removes the attributes from the function
-  void removeFnAttrs(const AttrBuilder &AttrsToRemove) {
+  void removeFnAttrs(const AttributeMask &AttrsToRemove) {
     Attrs = Attrs.removeFnAttributes(getContext(), AttrsToRemove);
   }
 
@@ -1554,24 +1562,24 @@ public:
   }
 
   /// Removes the attributes from the return value
-  void removeRetAttrs(const AttrBuilder &AttrsToRemove) {
+  void removeRetAttrs(const AttributeMask &AttrsToRemove) {
     Attrs = Attrs.removeRetAttributes(getContext(), AttrsToRemove);
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Removes the attribute from the given argument
   void removeParamAttr(unsigned ArgNo, StringRef Kind) {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     Attrs = Attrs.removeParamAttribute(getContext(), ArgNo, Kind);
   }
 
   /// Removes the attributes from the given argument
-  void removeParamAttrs(unsigned ArgNo, const AttrBuilder &AttrsToRemove) {
+  void removeParamAttrs(unsigned ArgNo, const AttributeMask &AttrsToRemove) {
     Attrs = Attrs.removeParamAttributes(getContext(), ArgNo, AttrsToRemove);
   }
 
@@ -1617,13 +1625,13 @@ public:
 
   /// Get the attribute of a given kind from a given arg
   Attribute getParamAttr(unsigned ArgNo, Attribute::AttrKind Kind) const {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     return getAttributes().getParamAttr(ArgNo, Kind);
   }
 
   /// Get the attribute of a given kind from a given arg
   Attribute getParamAttr(unsigned ArgNo, StringRef Kind) const {
-    assert(ArgNo < getNumArgOperands() && "Out of bounds");
+    assert(ArgNo < arg_size() && "Out of bounds");
     return getAttributes().getParamAttr(ArgNo, Kind);
   }
 
@@ -1640,14 +1648,14 @@ public:
   ///     (\p i) in the operand list.
   bool dataOperandHasImpliedAttr(unsigned i, Attribute::AttrKind Kind) const {
     // Note that we have to add one because `i` isn't zero-indexed.
-    assert(i < getNumArgOperands() + getNumTotalBundleOperands() &&
+    assert(i < arg_size() + getNumTotalBundleOperands() &&
            "Data operand index out of bounds!");
 
     // The attribute A can either be directly specified, if the operand in
     // question is a call argument; or be indirectly implied by the kind of its
     // containing operand bundle, if the operand is a bundle operand.
 
-    if (i < getNumArgOperands())
+    if (i < arg_size())
       return paramHasAttr(i, Kind);
 
     assert(hasOperandBundles() && i >= getBundleOperandsStartIndex() &&
@@ -1712,13 +1720,19 @@ public:
 
   // FIXME: Once this API is no longer duplicated in `CallSite`, rename this to
   // better indicate that this may return a conservative answer.
-  bool doesNotReadMemory(unsigned OpNo) const {
+  bool onlyWritesMemory(unsigned OpNo) const {
     return dataOperandHasImpliedAttr(OpNo, Attribute::WriteOnly) ||
            dataOperandHasImpliedAttr(OpNo, Attribute::ReadNone);
   }
 
   /// Extract the alignment of the return value.
-  MaybeAlign getRetAlign() const { return Attrs.getRetAlignment(); }
+  MaybeAlign getRetAlign() const {
+    if (auto Align = Attrs.getRetAlignment())
+      return Align;
+    if (const Function *F = getCalledFunction())
+      return F->getAttributes().getRetAlignment();
+    return None;
+  }
 
   /// Extract the alignment for a call or parameter (0=unknown).
   MaybeAlign getParamAlign(unsigned ArgNo) const {
@@ -1813,16 +1827,16 @@ public:
 
   /// Determine if the call does not access or only reads memory.
   bool onlyReadsMemory() const {
-    return doesNotAccessMemory() || hasFnAttr(Attribute::ReadOnly);
+    return hasImpliedFnAttr(Attribute::ReadOnly);
   }
 
   void setOnlyReadsMemory() { addFnAttr(Attribute::ReadOnly); }
 
   /// Determine if the call does not access or only writes memory.
-  bool doesNotReadMemory() const {
-    return doesNotAccessMemory() || hasFnAttr(Attribute::WriteOnly);
+  bool onlyWritesMemory() const {
+    return hasImpliedFnAttr(Attribute::WriteOnly);
   }
-  void setDoesNotReadMemory() { addFnAttr(Attribute::WriteOnly); }
+  void setOnlyWritesMemory() { addFnAttr(Attribute::WriteOnly); }
 
   /// Determine if the call can access memmory only using pointers based
   /// on its arguments.
@@ -2082,8 +2096,8 @@ public:
   /// Is the function attribute S disallowed by some operand bundle on
   /// this operand bundle user?
   bool isFnAttrDisallowedByOpBundle(StringRef S) const {
-    // Operand bundles only possibly disallow readnone, readonly and argmemonly
-    // attributes.  All String attributes are fine.
+    // Operand bundles only possibly disallow memory access attributes.  All
+    // String attributes are fine.
     return false;
   }
 
@@ -2108,6 +2122,9 @@ public:
 
     case Attribute::ReadOnly:
       return hasClobberingOperandBundles();
+
+    case Attribute::WriteOnly:
+      return hasReadingOperandBundles();
     }
 
     llvm_unreachable("switch has a default case!");
@@ -2278,6 +2295,26 @@ private:
       return false;
 
     return hasFnAttrOnCalledFunction(Kind);
+  }
+
+  /// A specialized version of hasFnAttrImpl for when the caller wants to
+  /// know if an attribute's semantics are implied, not whether the attribute
+  /// is actually present.  This distinction only exists when checking whether
+  /// something is readonly or writeonly since readnone implies both.  The case
+  /// which motivates the specialized code is a callee with readnone, and an
+  /// operand bundle on the call which disallows readnone but not either
+  /// readonly or writeonly.
+  bool hasImpliedFnAttr(Attribute::AttrKind Kind) const {
+    assert((Kind == Attribute::ReadOnly || Kind == Attribute::WriteOnly) &&
+           "use hasFnAttrImpl instead");
+    if (Attrs.hasFnAttr(Kind) || Attrs.hasFnAttr(Attribute::ReadNone))
+      return true;
+
+    if (isFnAttrDisallowedByOpBundle(Kind))
+      return false;
+
+    return hasFnAttrOnCalledFunction(Kind) ||
+      hasFnAttrOnCalledFunction(Attribute::ReadNone);
   }
 
   /// Determine whether the return value has the given attribute. Supports

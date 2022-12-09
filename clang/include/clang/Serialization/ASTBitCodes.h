@@ -402,6 +402,9 @@ enum UnhashedControlBlockRecordTypes {
 
   /// Record code for \#pragma diagnostic mappings.
   DIAG_PRAGMA_MAPPINGS,
+
+  /// Record code for the indices of used header search entries.
+  HEADER_SEARCH_ENTRY_USAGE,
 };
 
 /// Record code for extension blocks.
@@ -692,6 +695,9 @@ enum ASTRecordTypes {
 
   /// Record code for \#pragma float_control options.
   FLOAT_CONTROL_PRAGMA_OPTIONS = 65,
+
+  /// Record code for included files.
+  PP_INCLUDED_FILES = 66,
 };
 
 /// Record types used within a source manager block.
@@ -1954,6 +1960,7 @@ enum StmtCode {
   STMT_OMP_INTEROP_DIRECTIVE,
   STMT_OMP_DISPATCH_DIRECTIVE,
   STMT_OMP_MASKED_DIRECTIVE,
+  STMT_OMP_GENERIC_LOOP_DIRECTIVE,
   EXPR_OMP_ARRAY_SECTION,
   EXPR_OMP_ARRAY_SHAPING,
   EXPR_OMP_ITERATOR,

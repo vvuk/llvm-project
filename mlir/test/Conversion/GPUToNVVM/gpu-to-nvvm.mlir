@@ -11,43 +11,43 @@ gpu.module @test_module {
 
     // CHECK: = nvvm.read.ptx.sreg.tid.x : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %tIdX = "gpu.thread_id"() {dimension = "x"} : () -> (index)
+    %tIdX = gpu.thread_id x
     // CHECK: = nvvm.read.ptx.sreg.tid.y : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %tIdY = "gpu.thread_id"() {dimension = "y"} : () -> (index)
+    %tIdY = gpu.thread_id y
     // CHECK: = nvvm.read.ptx.sreg.tid.z : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %tIdZ = "gpu.thread_id"() {dimension = "z"} : () -> (index)
+    %tIdZ = gpu.thread_id z
 
     // CHECK: = nvvm.read.ptx.sreg.ntid.x : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bDimX = "gpu.block_dim"() {dimension = "x"} : () -> (index)
+    %bDimX = gpu.block_dim x
     // CHECK: = nvvm.read.ptx.sreg.ntid.y : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bDimY = "gpu.block_dim"() {dimension = "y"} : () -> (index)
+    %bDimY = gpu.block_dim y
     // CHECK: = nvvm.read.ptx.sreg.ntid.z : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bDimZ = "gpu.block_dim"() {dimension = "z"} : () -> (index)
+    %bDimZ = gpu.block_dim z
 
     // CHECK: = nvvm.read.ptx.sreg.ctaid.x : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bIdX = "gpu.block_id"() {dimension = "x"} : () -> (index)
+    %bIdX = gpu.block_id x
     // CHECK: = nvvm.read.ptx.sreg.ctaid.y : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bIdY = "gpu.block_id"() {dimension = "y"} : () -> (index)
+    %bIdY = gpu.block_id y
     // CHECK: = nvvm.read.ptx.sreg.ctaid.z : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %bIdZ = "gpu.block_id"() {dimension = "z"} : () -> (index)
+    %bIdZ = gpu.block_id z
 
     // CHECK: = nvvm.read.ptx.sreg.nctaid.x : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %gDimX = "gpu.grid_dim"() {dimension = "x"} : () -> (index)
+    %gDimX = gpu.grid_dim x
     // CHECK: = nvvm.read.ptx.sreg.nctaid.y : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %gDimY = "gpu.grid_dim"() {dimension = "y"} : () -> (index)
+    %gDimY = gpu.grid_dim y
     // CHECK: = nvvm.read.ptx.sreg.nctaid.z : i32
     // CHECK: = llvm.sext %{{.*}} : i32 to i64
-    %gDimZ = "gpu.grid_dim"() {dimension = "z"} : () -> (index)
+    %gDimZ = gpu.grid_dim z
 
     std.return %tIdX, %tIdY, %tIdZ, %bDimX, %bDimY, %bDimZ,
                %bIdX, %bIdY, %bIdZ, %gDimX, %gDimY, %gDimZ
@@ -64,7 +64,7 @@ gpu.module @test_module {
   builtin.func @gpu_index_comp(%idx : index) -> index {
     // CHECK: = llvm.add %{{.*}}, %{{.*}} : i64
     // CHECK32: = llvm.add %{{.*}}, %{{.*}} : i32
-    %0 = addi %idx, %idx : index
+    %0 = arith.addi %idx, %idx : index
     // CHECK: llvm.return %{{.*}} : i64
     // CHECK32: llvm.return %{{.*}} : i32
     std.return %0 : index
@@ -76,12 +76,12 @@ gpu.module @test_module {
 gpu.module @test_module {
   // CHECK-LABEL: func @gpu_all_reduce_op()
   gpu.func @gpu_all_reduce_op() {
-    %arg0 = constant 1.0 : f32
+    %arg0 = arith.constant 1.0 : f32
     // TODO: Check full IR expansion once lowering has settled.
-    // CHECK: nvvm.shfl.sync.bfly
+    // CHECK: nvvm.shfl.sync bfly {{.*}}
     // CHECK: nvvm.barrier0
     // CHECK: llvm.fadd
-    %result = "gpu.all_reduce"(%arg0) ({}) {op = "add"} : (f32) -> (f32)
+    %result = gpu.all_reduce add %arg0 {} : (f32) -> (f32)
 
     gpu.return
   }
@@ -92,15 +92,15 @@ gpu.module @test_module {
 gpu.module @test_module {
   // CHECK-LABEL: func @gpu_all_reduce_region()
   gpu.func @gpu_all_reduce_region() {
-    %arg0 = constant 1 : i32
+    %arg0 = arith.constant 1 : i32
     // TODO: Check full IR expansion once lowering has settled.
-    // CHECK: nvvm.shfl.sync.bfly
+    // CHECK: nvvm.shfl.sync bfly {{.*}}
     // CHECK: nvvm.barrier0
-    %result = "gpu.all_reduce"(%arg0) ({
+    %result = gpu.all_reduce %arg0 {
     ^bb(%lhs : i32, %rhs : i32):
-      %xor = xor %lhs, %rhs : i32
+      %xor = arith.xori %lhs, %rhs : i32
       "gpu.yield"(%xor) : (i32) -> ()
-    }) : (i32) -> (i32)
+    } : (i32) -> (i32)
     gpu.return
   }
 }
@@ -109,23 +109,38 @@ gpu.module @test_module {
 
 gpu.module @test_module {
   // CHECK-LABEL: func @gpu_shuffle()
-  builtin.func @gpu_shuffle() -> (f32) {
+  builtin.func @gpu_shuffle() -> (f32, f32, f32, f32) {
     // CHECK: %[[#VALUE:]] = llvm.mlir.constant(1.000000e+00 : f32) : f32
-    %arg0 = constant 1.0 : f32
+    %arg0 = arith.constant 1.0 : f32
     // CHECK: %[[#OFFSET:]] = llvm.mlir.constant(4 : i32) : i32
-    %arg1 = constant 4 : i32
+    %arg1 = arith.constant 4 : i32
     // CHECK: %[[#WIDTH:]] = llvm.mlir.constant(23 : i32) : i32
-    %arg2 = constant 23 : i32
+    %arg2 = arith.constant 23 : i32
     // CHECK: %[[#ONE:]] = llvm.mlir.constant(1 : i32) : i32
-    // CHECK: %[[#SHL:]] = llvm.shl %[[#ONE]], %[[#WIDTH]] : i32
-    // CHECK: %[[#MASK:]] = llvm.sub %[[#SHL]], %[[#ONE]] : i32
+    // CHECK: %[[#MINUS_ONE:]] = llvm.mlir.constant(-1 : i32) : i32
+    // CHECK: %[[#THIRTY_TWO:]] = llvm.mlir.constant(32 : i32) : i32
+    // CHECK: %[[#NUM_LANES:]] = llvm.sub %[[#THIRTY_TWO]], %[[#WIDTH]] : i32
+    // CHECK: %[[#MASK:]] = llvm.lshr %[[#MINUS_ONE]], %[[#NUM_LANES]] : i32
     // CHECK: %[[#CLAMP:]] = llvm.sub %[[#WIDTH]], %[[#ONE]] : i32
-    // CHECK: %[[#SHFL:]] = nvvm.shfl.sync.bfly %[[#MASK]], %[[#VALUE]], %[[#OFFSET]], %[[#CLAMP]] : !llvm.struct<(f32, i1)>
+    // CHECK: %[[#SHFL:]] = nvvm.shfl.sync bfly %[[#MASK]], %[[#VALUE]], %[[#OFFSET]], %[[#CLAMP]] {return_value_and_is_valid} : f32 -> !llvm.struct<(f32, i1)>
     // CHECK: llvm.extractvalue %[[#SHFL]][0 : index] : !llvm.struct<(f32, i1)>
     // CHECK: llvm.extractvalue %[[#SHFL]][1 : index] : !llvm.struct<(f32, i1)>
-    %shfl, %pred = "gpu.shuffle"(%arg0, %arg1, %arg2) { mode = "xor" } : (f32, i32, i32) -> (f32, i1)
+    %shfl, %pred = gpu.shuffle xor %arg0, %arg1, %arg2 : f32
+    // CHECK: %[[#ONE:]] = llvm.mlir.constant(1 : i32) : i32
+    // CHECK: %[[#MINUS_ONE:]] = llvm.mlir.constant(-1 : i32) : i32
+    // CHECK: %[[#THIRTY_TWO:]] = llvm.mlir.constant(32 : i32) : i32
+    // CHECK: %[[#NUM_LANES:]] = llvm.sub %[[#THIRTY_TWO]], %[[#WIDTH]] : i32
+    // CHECK: %[[#MASK:]] = llvm.lshr %[[#MINUS_ONE]], %[[#NUM_LANES]] : i32
+    // CHECK: %[[#SHFL:]] = nvvm.shfl.sync up %[[#MASK]], %[[#VALUE]], %[[#OFFSET]], %[[#NUM_LANES]] {return_value_and_is_valid} : f32 -> !llvm.struct<(f32, i1)>
+    // CHECK: llvm.extractvalue %[[#SHFL]][0 : index] : !llvm.struct<(f32, i1)>
+    // CHECK: llvm.extractvalue %[[#SHFL]][1 : index] : !llvm.struct<(f32, i1)>
+    %shflu, %predu = gpu.shuffle up %arg0, %arg1, %arg2 : f32
+    // CHECK: nvvm.shfl.sync down {{.*}} {return_value_and_is_valid} : f32 -> !llvm.struct<(f32, i1)>
+    %shfld, %predd = gpu.shuffle down %arg0, %arg1, %arg2 : f32
+    // CHECK: nvvm.shfl.sync idx {{.*}} {return_value_and_is_valid} : f32 -> !llvm.struct<(f32, i1)>
+    %shfli, %predi = gpu.shuffle idx %arg0, %arg1, %arg2 : f32
 
-    std.return %shfl : f32
+    std.return %shfl, %shflu, %shfld, %shfli : f32, f32,f32, f32
   }
 }
 
@@ -147,9 +162,9 @@ gpu.module @test_module {
   // CHECK: llvm.func @__nv_fabs(f64) -> f64
   // CHECK-LABEL: func @gpu_fabs
   builtin.func @gpu_fabs(%arg_f32 : f32, %arg_f64 : f64) -> (f32, f64) {
-    %result32 = std.absf %arg_f32 : f32
+    %result32 = math.abs %arg_f32 : f32
     // CHECK: llvm.call @__nv_fabsf(%{{.*}}) : (f32) -> f32
-    %result64 = std.absf %arg_f64 : f64
+    %result64 = math.abs %arg_f64 : f64
     // CHECK: llvm.call @__nv_fabs(%{{.*}}) : (f64) -> f64
     std.return %result32, %result64 : f32, f64
   }
@@ -162,9 +177,9 @@ gpu.module @test_module {
   // CHECK: llvm.func @__nv_ceil(f64) -> f64
   // CHECK-LABEL: func @gpu_ceil
   builtin.func @gpu_ceil(%arg_f32 : f32, %arg_f64 : f64) -> (f32, f64) {
-    %result32 = std.ceilf %arg_f32 : f32
+    %result32 = math.ceil %arg_f32 : f32
     // CHECK: llvm.call @__nv_ceilf(%{{.*}}) : (f32) -> f32
-    %result64 = std.ceilf %arg_f64 : f64
+    %result64 = math.ceil %arg_f64 : f64
     // CHECK: llvm.call @__nv_ceil(%{{.*}}) : (f64) -> f64
     std.return %result32, %result64 : f32, f64
   }
@@ -177,9 +192,9 @@ gpu.module @test_module {
   // CHECK: llvm.func @__nv_floor(f64) -> f64
   // CHECK-LABEL: func @gpu_floor
   builtin.func @gpu_floor(%arg_f32 : f32, %arg_f64 : f64) -> (f32, f64) {
-    %result32 = std.floorf %arg_f32 : f32
+    %result32 = math.floor %arg_f32 : f32
     // CHECK: llvm.call @__nv_floorf(%{{.*}}) : (f32) -> f32
-    %result64 = std.floorf %arg_f64 : f64
+    %result64 = math.floor %arg_f64 : f64
     // CHECK: llvm.call @__nv_floor(%{{.*}}) : (f64) -> f64
     std.return %result32, %result64 : f32, f64
   }

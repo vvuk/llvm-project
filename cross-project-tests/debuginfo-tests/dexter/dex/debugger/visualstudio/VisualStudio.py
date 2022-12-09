@@ -67,6 +67,23 @@ class VisualStudio(DebuggerBase, metaclass=abc.ABCMeta):  # pylint: disable=abst
 
         super(VisualStudio, self).__init__(*args)
 
+    def _create_solution(self):
+        self._solution.Create(self.context.working_directory.path,
+                              'DexterSolution')
+        try:
+            self._solution.AddFromFile(self._project_file)
+        except OSError:
+            raise LoadDebuggerException(
+                'could not debug the specified executable', sys.exc_info())
+
+    def _load_solution(self):
+        try:
+            self._solution.Open(self.context.options.vs_solution)
+        except:
+            raise LoadDebuggerException(
+                    'could not load specified vs solution at {}'.
+                    format(self.context.options.vs_solution), sys.exc_info())
+
     def _custom_init(self):
         try:
             self._debugger = self._interface.Debugger
@@ -76,14 +93,10 @@ class VisualStudio(DebuggerBase, metaclass=abc.ABCMeta):  # pylint: disable=abst
                 self.context.options.show_debugger)
 
             self._solution = self._interface.Solution
-            self._solution.Create(self.context.working_directory.path,
-                                  'DexterSolution')
-
-            try:
-                self._solution.AddFromFile(self._project_file)
-            except OSError:
-                raise LoadDebuggerException(
-                    'could not debug the specified executable', sys.exc_info())
+            if self.context.options.vs_solution is None:
+                self._create_solution()
+            else:
+                self._load_solution()
 
             self._fn_step = self._debugger.StepInto
             self._fn_go = self._debugger.Go
@@ -216,7 +229,26 @@ class VisualStudio(DebuggerBase, metaclass=abc.ABCMeta):  # pylint: disable=abst
                 bp.Delete()
                 break
 
-    def launch(self):
+    def _fetch_property(self, props, name):
+        num_props = props.Count
+        result = None
+        for x in range(1, num_props+1):
+            item = props.Item(x)
+            if item.Name == name:
+                return item
+        assert False, "Couldn't find property {}".format(name)
+
+    def launch(self, cmdline):
+        cmdline_str = ' '.join(cmdline)
+
+        # In a slightly baroque manner, lookup the VS project that runs when
+        # you click "run", and set its command line options to the desired
+        # command line options.
+        startup_proj_name = str(self._fetch_property(self._interface.Solution.Properties, 'StartupProject'))
+        project = self._fetch_property(self._interface.Solution, startup_proj_name)
+        ActiveConfiguration = self._fetch_property(project.Properties, 'ActiveConfiguration').Object
+        ActiveConfiguration.DebugSettings.CommandArguments = cmdline_str
+
         self._fn_go()
 
     def step(self):

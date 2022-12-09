@@ -31,16 +31,16 @@ static const Scope *FindScopeContaining(
     if (predicate(*scope)) {
       return scope;
     }
-    if (scope->IsGlobal()) {
+    if (scope->IsTopLevel()) {
       return nullptr;
     }
   }
 }
 
 const Scope &GetTopLevelUnitContaining(const Scope &start) {
-  CHECK(!start.IsGlobal());
+  CHECK(!start.IsTopLevel());
   return DEREF(FindScopeContaining(
-      start, [](const Scope &scope) { return scope.parent().IsGlobal(); }));
+      start, [](const Scope &scope) { return scope.parent().IsTopLevel(); }));
 }
 
 const Scope &GetTopLevelUnitContaining(const Symbol &symbol) {
@@ -58,7 +58,7 @@ const Scope *FindModuleFileContaining(const Scope &start) {
 }
 
 const Scope &GetProgramUnitContaining(const Scope &start) {
-  CHECK(!start.IsGlobal());
+  CHECK(!start.IsTopLevel());
   return DEREF(FindScopeContaining(start, [](const Scope &scope) {
     switch (scope.kind()) {
     case Scope::Kind::Module:
@@ -80,7 +80,7 @@ const Scope *FindPureProcedureContaining(const Scope &start) {
   // N.B. We only need to examine the innermost containing program unit
   // because an internal subprogram of a pure subprogram must also
   // be pure (C1592).
-  if (start.IsGlobal()) {
+  if (start.IsTopLevel()) {
     return nullptr;
   } else {
     const Scope &scope{GetProgramUnitContaining(start)};
@@ -88,16 +88,13 @@ const Scope *FindPureProcedureContaining(const Scope &start) {
   }
 }
 
-static bool MightHaveCompatibleDerivedtypes(
+// 7.5.2.4 "same derived type" test -- rely on IsTkCompatibleWith() and its
+// infrastructure to detect and handle comparisons on distinct (but "same")
+// sequence/bind(C) derived types
+static bool MightBeSameDerivedType(
     const std::optional<evaluate::DynamicType> &lhsType,
     const std::optional<evaluate::DynamicType> &rhsType) {
-  const DerivedTypeSpec *lhsDerived{evaluate::GetDerivedTypeSpec(lhsType)};
-  const DerivedTypeSpec *rhsDerived{evaluate::GetDerivedTypeSpec(rhsType)};
-  if (!lhsDerived || !rhsDerived) {
-    return false;
-  }
-  return *lhsDerived == *rhsDerived ||
-      lhsDerived->MightBeAssignmentCompatibleWith(*rhsDerived);
+  return lhsType && rhsType && rhsType->IsTkCompatibleWith(*lhsType);
 }
 
 Tristate IsDefinedAssignment(
@@ -113,7 +110,7 @@ Tristate IsDefinedAssignment(
   } else if (lhsCat != TypeCategory::Derived) {
     return ToTristate(lhsCat != rhsCat &&
         (!IsNumericTypeCategory(lhsCat) || !IsNumericTypeCategory(rhsCat)));
-  } else if (MightHaveCompatibleDerivedtypes(lhsType, rhsType)) {
+  } else if (MightBeSameDerivedType(lhsType, rhsType)) {
     return Tristate::Maybe; // TYPE(t) = TYPE(t) can be defined or intrinsic
   } else {
     return Tristate::Yes;
@@ -206,7 +203,7 @@ bool IsUseAssociated(const Symbol &symbol, const Scope &scope) {
 
 bool DoesScopeContain(
     const Scope *maybeAncestor, const Scope &maybeDescendent) {
-  return maybeAncestor && !maybeDescendent.IsGlobal() &&
+  return maybeAncestor && !maybeDescendent.IsTopLevel() &&
       FindScopeContaining(maybeDescendent.parent(),
           [&](const Scope &scope) { return &scope == maybeAncestor; });
 }
@@ -519,38 +516,6 @@ const EquivalenceSet *FindEquivalenceSet(const Symbol &symbol) {
   return nullptr;
 }
 
-bool IsExtensibleType(const DerivedTypeSpec *derived) {
-  return derived && !IsIsoCType(derived) &&
-      !derived->typeSymbol().attrs().test(Attr::BIND_C) &&
-      !derived->typeSymbol().get<DerivedTypeDetails>().sequence();
-}
-
-bool IsBuiltinDerivedType(const DerivedTypeSpec *derived, const char *name) {
-  if (!derived) {
-    return false;
-  } else {
-    const auto &symbol{derived->typeSymbol()};
-    return symbol.owner().IsModule() &&
-        (symbol.owner().GetName().value() == "__fortran_builtins" ||
-            symbol.owner().GetName().value() == "__fortran_type_info") &&
-        symbol.name() == "__builtin_"s + name;
-  }
-}
-
-bool IsIsoCType(const DerivedTypeSpec *derived) {
-  return IsBuiltinDerivedType(derived, "c_ptr") ||
-      IsBuiltinDerivedType(derived, "c_funptr");
-}
-
-bool IsTeamType(const DerivedTypeSpec *derived) {
-  return IsBuiltinDerivedType(derived, "team_type");
-}
-
-bool IsEventTypeOrLockType(const DerivedTypeSpec *derivedTypeSpec) {
-  return IsBuiltinDerivedType(derivedTypeSpec, "event_type") ||
-      IsBuiltinDerivedType(derivedTypeSpec, "lock_type");
-}
-
 bool IsOrContainsEventOrLockComponent(const Symbol &original) {
   const Symbol &symbol{ResolveAssociations(original)};
   if (const auto *details{symbol.detailsIf<ObjectEntityDetails>()}) {
@@ -658,49 +623,6 @@ bool IsSeparateModuleProcedureInterface(const Symbol *symbol) {
   return false;
 }
 
-// 3.11 automatic data object
-bool IsAutomatic(const Symbol &symbol) {
-  if (const auto *object{symbol.detailsIf<ObjectEntityDetails>()}) {
-    if (!object->isDummy() && !IsAllocatable(symbol) && !IsPointer(symbol)) {
-      if (const DeclTypeSpec * type{symbol.GetType()}) {
-        // If a type parameter value is not a constant expression, the
-        // object is automatic.
-        if (type->category() == DeclTypeSpec::Character) {
-          if (const auto &length{
-                  type->characterTypeSpec().length().GetExplicit()}) {
-            if (!evaluate::IsConstantExpr(*length)) {
-              return true;
-            }
-          }
-        } else if (const DerivedTypeSpec * derived{type->AsDerived()}) {
-          for (const auto &pair : derived->parameters()) {
-            if (const auto &value{pair.second.GetExplicit()}) {
-              if (!evaluate::IsConstantExpr(*value)) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-      // If an array bound is not a constant expression, the object is
-      // automatic.
-      for (const ShapeSpec &dim : object->shape()) {
-        if (const auto &lb{dim.lbound().GetExplicit()}) {
-          if (!evaluate::IsConstantExpr(*lb)) {
-            return true;
-          }
-        }
-        if (const auto &ub{dim.ubound().GetExplicit()}) {
-          if (!evaluate::IsConstantExpr(*ub)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
-}
-
 bool IsFinalizable(
     const Symbol &symbol, std::set<const DerivedTypeSpec *> *inProgress) {
   if (IsPointer(symbol)) {
@@ -749,37 +671,6 @@ bool HasImpureFinal(const DerivedTypeSpec &derived) {
   } else {
     return false;
   }
-}
-
-bool IsCoarray(const Symbol &symbol) { return symbol.Corank() > 0; }
-
-bool IsAutomaticObject(const Symbol &symbol) {
-  if (IsDummy(symbol) || IsPointer(symbol) || IsAllocatable(symbol)) {
-    return false;
-  }
-  if (const DeclTypeSpec * type{symbol.GetType()}) {
-    if (type->category() == DeclTypeSpec::Character) {
-      ParamValue length{type->characterTypeSpec().length()};
-      if (length.isExplicit()) {
-        if (MaybeIntExpr lengthExpr{length.GetExplicit()}) {
-          if (!ToInt64(lengthExpr)) {
-            return true;
-          }
-        }
-      }
-    }
-  }
-  if (symbol.IsObjectArray()) {
-    for (const ShapeSpec &spec : symbol.get<ObjectEntityDetails>().shape()) {
-      auto &lbound{spec.lbound().GetExplicit()};
-      auto &ubound{spec.ubound().GetExplicit()};
-      if ((lbound && !evaluate::ToInt64(*lbound)) ||
-          (ubound && !evaluate::ToInt64(*ubound))) {
-        return true;
-      }
-    }
-  }
-  return false;
 }
 
 bool IsAssumedLengthCharacter(const Symbol &symbol) {
@@ -1030,7 +921,7 @@ public:
 private:
   bool IsCoarrayObject(const parser::AllocateObject &allocateObject) {
     const parser::Name &name{GetLastName(allocateObject)};
-    return name.symbol && IsCoarray(*name.symbol);
+    return name.symbol && evaluate::IsCoarray(*name.symbol);
   }
 };
 
@@ -1094,7 +985,7 @@ parser::CharBlock GetImageControlStmtLocation(
 bool HasCoarray(const parser::Expr &expression) {
   if (const auto *expr{GetExpr(expression)}) {
     for (const Symbol &symbol : evaluate::CollectSymbols(*expr)) {
-      if (IsCoarray(GetAssociationRoot(symbol))) {
+      if (evaluate::IsCoarray(symbol)) {
         return true;
       }
     }
@@ -1203,6 +1094,7 @@ ProcedureDefinitionClass ClassifyProcedure(const Symbol &symbol) { // 15.2.2
     }
     switch (ultimate.owner().kind()) {
     case Scope::Kind::Global:
+    case Scope::Kind::IntrinsicModules:
       return ProcedureDefinitionClass::External;
     case Scope::Kind::Module:
       return ProcedureDefinitionClass::Module;
@@ -1354,7 +1246,8 @@ template class ComponentIterator<ComponentKind::Scope>;
 UltimateComponentIterator::const_iterator FindCoarrayUltimateComponent(
     const DerivedTypeSpec &derived) {
   UltimateComponentIterator ultimates{derived};
-  return std::find_if(ultimates.begin(), ultimates.end(), IsCoarray);
+  return std::find_if(ultimates.begin(), ultimates.end(),
+      [](const Symbol &symbol) { return evaluate::IsCoarray(symbol); });
 }
 
 UltimateComponentIterator::const_iterator FindPointerUltimateComponent(
@@ -1394,7 +1287,7 @@ FindPolymorphicAllocatableNonCoarrayUltimateComponent(
     const DerivedTypeSpec &derived) {
   UltimateComponentIterator ultimates{derived};
   return std::find_if(ultimates.begin(), ultimates.end(), [](const Symbol &x) {
-    return IsPolymorphicAllocatable(x) && !IsCoarray(x);
+    return IsPolymorphicAllocatable(x) && !evaluate::IsCoarray(x);
   });
 }
 
@@ -1450,13 +1343,15 @@ const Symbol *FindImmediateComponent(const DerivedTypeSpec &type,
   return nullptr;
 }
 
-bool IsFunctionResultWithSameNameAsFunction(const Symbol &symbol) {
+const Symbol *IsFunctionResultWithSameNameAsFunction(const Symbol &symbol) {
   if (IsFunctionResult(symbol)) {
     if (const Symbol * function{symbol.owner().symbol()}) {
-      return symbol.name() == function->name();
+      if (symbol.name() == function->name()) {
+        return function;
+      }
     }
   }
-  return false;
+  return nullptr;
 }
 
 void LabelEnforce::Post(const parser::GotoStmt &gotoStmt) {

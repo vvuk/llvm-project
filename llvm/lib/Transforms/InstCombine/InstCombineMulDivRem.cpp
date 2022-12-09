@@ -107,14 +107,19 @@ static Value *foldMulSelectToNegate(BinaryOperator &I,
   // mul (select Cond, 1, -1), OtherOp --> select Cond, OtherOp, -OtherOp
   // mul OtherOp, (select Cond, 1, -1) --> select Cond, OtherOp, -OtherOp
   if (match(&I, m_c_Mul(m_OneUse(m_Select(m_Value(Cond), m_One(), m_AllOnes())),
-                        m_Value(OtherOp))))
-    return Builder.CreateSelect(Cond, OtherOp, Builder.CreateNeg(OtherOp));
-
+                        m_Value(OtherOp)))) {
+    bool HasAnyNoWrap = I.hasNoSignedWrap() || I.hasNoUnsignedWrap();
+    Value *Neg = Builder.CreateNeg(OtherOp, "", false, HasAnyNoWrap);
+    return Builder.CreateSelect(Cond, OtherOp, Neg);
+  }
   // mul (select Cond, -1, 1), OtherOp --> select Cond, -OtherOp, OtherOp
   // mul OtherOp, (select Cond, -1, 1) --> select Cond, -OtherOp, OtherOp
   if (match(&I, m_c_Mul(m_OneUse(m_Select(m_Value(Cond), m_AllOnes(), m_One())),
-                        m_Value(OtherOp))))
-    return Builder.CreateSelect(Cond, Builder.CreateNeg(OtherOp), OtherOp);
+                        m_Value(OtherOp)))) {
+    bool HasAnyNoWrap = I.hasNoSignedWrap() || I.hasNoUnsignedWrap();
+    Value *Neg = Builder.CreateNeg(OtherOp, "", false, HasAnyNoWrap);
+    return Builder.CreateSelect(Cond, Neg, OtherOp);
+  }
 
   // fmul (select Cond, 1.0, -1.0), OtherOp --> select Cond, OtherOp, -OtherOp
   // fmul OtherOp, (select Cond, 1.0, -1.0) --> select Cond, OtherOp, -OtherOp
@@ -149,6 +154,9 @@ Instruction *InstCombinerImpl::visitMul(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
+
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
 
   if (Value *V = SimplifyUsingDistributiveLaws(I))
     return replaceInstUsesWith(I, V);
@@ -343,12 +351,20 @@ Instruction *InstCombinerImpl::visitMul(BinaryOperator &I) {
     return CastInst::Create(Instruction::SExt, And, I.getType());
   }
 
-  // (bool X) * Y --> X ? Y : 0
-  // Y * (bool X) --> X ? Y : 0
+  // (zext bool X) * Y --> X ? Y : 0
+  // Y * (zext bool X) --> X ? Y : 0
   if (match(Op0, m_ZExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(X, Op1, ConstantInt::get(I.getType(), 0));
   if (match(Op1, m_ZExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1))
     return SelectInst::Create(X, Op0, ConstantInt::get(I.getType(), 0));
+
+  // (sext bool X) * C --> X ? -C : 0
+  Constant *ImmC;
+  if (match(Op0, m_SExt(m_Value(X))) && X->getType()->isIntOrIntVectorTy(1) &&
+      match(Op1, m_ImmConstant(ImmC))) {
+    Constant *NegC = ConstantExpr::getNeg(ImmC);
+    return SelectInst::Create(X, NegC, ConstantInt::getNullValue(I.getType()));
+  }
 
   // (lshr X, 31) * Y --> (ashr X, 31) & Y
   // Y * (lshr X, 31) --> (ashr X, 31) & Y
@@ -436,6 +452,9 @@ Instruction *InstCombinerImpl::visitFMul(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
+
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
 
   if (Instruction *FoldedMul = foldBinOpIntoSelectOrPhi(I))
     return FoldedMul;
@@ -716,11 +735,11 @@ static bool isMultiple(const APInt &C1, const APInt &C2, APInt &Quotient,
   assert(C1.getBitWidth() == C2.getBitWidth() && "Constant widths not equal");
 
   // Bail if we will divide by zero.
-  if (C2.isNullValue())
+  if (C2.isZero())
     return false;
 
   // Bail if we would divide INT_MIN by -1.
-  if (IsSigned && C1.isMinSignedValue() && C2.isAllOnesValue())
+  if (IsSigned && C1.isMinSignedValue() && C2.isAllOnes())
     return false;
 
   APInt Remainder(C1.getBitWidth(), /*val=*/0ULL, IsSigned);
@@ -737,6 +756,9 @@ static bool isMultiple(const APInt &C1, const APInt &C2, APInt &Quotient,
 /// division instructions.
 /// Common integer divide transforms
 Instruction *InstCombinerImpl::commonIDivTransforms(BinaryOperator &I) {
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
   bool IsSigned = I.getOpcode() == Instruction::SDiv;
   Type *Ty = I.getType();
@@ -749,6 +771,15 @@ Instruction *InstCombinerImpl::commonIDivTransforms(BinaryOperator &I) {
   // This does not apply for fdiv.
   if (simplifyDivRemOfSelectWithZeroOp(I))
     return &I;
+
+  // If the divisor is a select-of-constants, try to constant fold all div ops:
+  // C / (select Cond, TrueC, FalseC) --> select Cond, (C / TrueC), (C / FalseC)
+  // TODO: Adapt simplifyDivRemOfSelectWithZeroOp to allow this and other folds.
+  if (match(Op0, m_ImmConstant()) &&
+      match(Op1, m_Select(m_Value(), m_ImmConstant(), m_ImmConstant()))) {
+    if (Instruction *R = FoldOpIntoSelect(I, cast<SelectInst>(Op1)))
+      return R;
+  }
 
   const APInt *C2;
   if (match(Op1, m_APInt(C2))) {
@@ -814,7 +845,7 @@ Instruction *InstCombinerImpl::commonIDivTransforms(BinaryOperator &I) {
       }
     }
 
-    if (!C2->isNullValue()) // avoid X udiv 0
+    if (!C2->isZero()) // avoid X udiv 0
       if (Instruction *FoldedDiv = foldBinOpIntoSelectOrPhi(I))
         return FoldedDiv;
   }
@@ -1345,6 +1376,9 @@ Instruction *InstCombinerImpl::visitFDiv(BinaryOperator &I) {
   if (Instruction *X = foldVectorBinop(I))
     return X;
 
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   if (Instruction *R = foldFDivConstantDivisor(I))
     return R;
 
@@ -1446,6 +1480,9 @@ Instruction *InstCombinerImpl::visitFDiv(BinaryOperator &I) {
 /// remainder instructions.
 /// Common integer remainder transforms
 Instruction *InstCombinerImpl::commonIRemTransforms(BinaryOperator &I) {
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
+
   Value *Op0 = I.getOperand(0), *Op1 = I.getOperand(1);
 
   // The RHS is known non-zero.
@@ -1455,6 +1492,15 @@ Instruction *InstCombinerImpl::commonIRemTransforms(BinaryOperator &I) {
   // Handle cases involving: rem X, (select Cond, Y, Z)
   if (simplifyDivRemOfSelectWithZeroOp(I))
     return &I;
+
+  // If the divisor is a select-of-constants, try to constant fold all rem ops:
+  // C % (select Cond, TrueC, FalseC) --> select Cond, (C % TrueC), (C % FalseC)
+  // TODO: Adapt simplifyDivRemOfSelectWithZeroOp to allow this and other folds.
+  if (match(Op0, m_ImmConstant()) &&
+      match(Op1, m_Select(m_Value(), m_ImmConstant(), m_ImmConstant()))) {
+    if (Instruction *R = FoldOpIntoSelect(I, cast<SelectInst>(Op1)))
+      return R;
+  }
 
   if (isa<Constant>(Op1)) {
     if (Instruction *Op0I = dyn_cast<Instruction>(Op0)) {
@@ -1614,6 +1660,9 @@ Instruction *InstCombinerImpl::visitFRem(BinaryOperator &I) {
 
   if (Instruction *X = foldVectorBinop(I))
     return X;
+
+  if (Instruction *Phi = foldBinopWithPhiOperands(I))
+    return Phi;
 
   return nullptr;
 }

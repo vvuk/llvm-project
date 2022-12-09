@@ -61,6 +61,8 @@
 #include "llvm/Transforms/Utils/AssumeBundleBuilder.h"
 #include "llvm/Transforms/Utils/Local.h"
 
+#include <map>
+
 using namespace llvm;
 using namespace PatternMatch;
 
@@ -302,9 +304,7 @@ bool X86LowerAMXType::visit() {
   Col2Row.clear();
 
   for (BasicBlock *BB : post_order(&Func)) {
-    for (BasicBlock::reverse_iterator II = BB->rbegin(), IE = BB->rend();
-         II != IE;) {
-      Instruction &Inst = *II++;
+    for (Instruction &Inst : llvm::make_early_inc_range(llvm::reverse(*BB))) {
       auto *Bitcast = dyn_cast<BitCastInst>(&Inst);
       if (!Bitcast)
         continue;
@@ -347,10 +347,8 @@ bool X86LowerAMXType::visit() {
           continue;
         }
         StoreInst *ST = nullptr;
-        for (auto UI = Bitcast->use_begin(), UE = Bitcast->use_end();
-             UI != UE;) {
-          Value *I = (UI++)->getUser();
-          ST = dyn_cast<StoreInst>(I);
+        for (Use &U : Bitcast->uses()) {
+          ST = dyn_cast<StoreInst>(U.getUser());
           if (ST)
             break;
         }

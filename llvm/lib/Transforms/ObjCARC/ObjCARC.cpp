@@ -114,8 +114,8 @@ CallInst *BundledRetainClaimRVs::insertRVCallWithColors(
 }
 
 BundledRetainClaimRVs::~BundledRetainClaimRVs() {
-  if (ContractPass) {
-    for (auto P : RVCalls) {
+  for (auto P : RVCalls) {
+    if (ContractPass) {
       CallBase *CB = P.second;
       // At this point, we know that the annotated calls can't be tail calls
       // as they are followed by marker instructions and retainRV/claimRV
@@ -123,16 +123,9 @@ BundledRetainClaimRVs::~BundledRetainClaimRVs() {
       // can't be tail calls.
       if (auto *CI = dyn_cast<CallInst>(CB))
         CI->setTailCallKind(CallInst::TCK_NoTail);
-
-      // Remove the ARC intrinsic function operand from the operand bundle.
-      OperandBundleDef OB("clang.arc.attachedcall", None);
-      auto *NewCB = CallBase::Create(CB, OB, CB);
-      CB->replaceAllUsesWith(NewCB);
-      CB->eraseFromParent();
     }
-  } else {
-    for (auto P : RVCalls)
-      EraseInstruction(P.first);
+
+    EraseInstruction(P.first);
   }
 
   RVCalls.clear();

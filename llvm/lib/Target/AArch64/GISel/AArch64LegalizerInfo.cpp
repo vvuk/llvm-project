@@ -169,14 +169,22 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
       .scalarize(0);
 
   getActionDefinitionsBuilder({G_SREM, G_UREM, G_SDIVREM, G_UDIVREM})
-      .lowerFor({s1, s8, s16, s32, s64});
+      .lowerFor({s1, s8, s16, s32, s64, v2s64, v4s32, v2s32})
+      .widenScalarOrEltToNextPow2(0)
+      .clampScalarOrElt(0, s32, s64)
+      .clampNumElements(0, v2s32, v4s32)
+      .clampNumElements(0, v2s64, v2s64)
+      .moreElementsToNextPow2(0);
+
 
   getActionDefinitionsBuilder({G_SMULO, G_UMULO})
       .widenScalarToNextPow2(0, /*Min = */ 32)
       .clampScalar(0, s32, s64)
       .lowerIf(typeIs(1, s1));
 
-  getActionDefinitionsBuilder({G_SMULH, G_UMULH}).legalFor({s32, s64});
+  getActionDefinitionsBuilder({G_SMULH, G_UMULH})
+      .legalFor({s64, v8s16, v16s8, v4s32})
+      .lower();
 
   getActionDefinitionsBuilder({G_SMIN, G_SMAX, G_UMIN, G_UMAX})
       .legalFor({v8s8, v16s8, v4s16, v8s16, v2s32, v4s32})
@@ -632,6 +640,7 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
                  {v2s64, s64}})
       .clampNumElements(0, v4s32, v4s32)
       .clampNumElements(0, v2s64, v2s64)
+      .minScalarOrElt(0, s8)
       .minScalarSameAs(1, 0);
 
   getActionDefinitionsBuilder(G_BUILD_VECTOR_TRUNC).lower();
@@ -690,8 +699,28 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
 
   getActionDefinitionsBuilder(G_DYN_STACKALLOC).lower();
 
-  getActionDefinitionsBuilder({G_BZERO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
-      .libcall();
+  if (ST.hasMOPS()) {
+    // G_BZERO is not supported. Currently it is only emitted by
+    // PreLegalizerCombiner for G_MEMSET with zero constant.
+    getActionDefinitionsBuilder(G_BZERO).unsupported();
+
+    getActionDefinitionsBuilder(G_MEMSET)
+        .legalForCartesianProduct({p0}, {s64}, {s64})
+        .customForCartesianProduct({p0}, {s8}, {s64})
+        .immIdx(0); // Inform verifier imm idx 0 is handled.
+
+    getActionDefinitionsBuilder({G_MEMCPY, G_MEMMOVE})
+        .legalForCartesianProduct({p0}, {p0}, {s64})
+        .immIdx(0); // Inform verifier imm idx 0 is handled.
+
+    // G_MEMCPY_INLINE does not have a tailcall immediate
+    getActionDefinitionsBuilder(G_MEMCPY_INLINE)
+        .legalForCartesianProduct({p0}, {p0}, {s64});
+
+  } else {
+    getActionDefinitionsBuilder({G_BZERO, G_MEMCPY, G_MEMMOVE, G_MEMSET})
+        .libcall();
+  }
 
   // FIXME: Legal types are only legal with NEON.
   getActionDefinitionsBuilder(G_ABS)
@@ -712,7 +741,8 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
       .clampMaxNumElements(1, s32, 4)
       .lower();
 
-  getActionDefinitionsBuilder(G_VECREDUCE_OR)
+  getActionDefinitionsBuilder(
+      {G_VECREDUCE_OR, G_VECREDUCE_AND, G_VECREDUCE_XOR})
       // Try to break down into smaller vectors as long as they're at least 64
       // bits. This lets us use vector operations for some parts of the
       // reduction.
@@ -775,6 +805,11 @@ AArch64LegalizerInfo::AArch64LegalizerInfo(const AArch64Subtarget &ST)
       .libcallFor({s128})
       .minScalar(0, MinFPScalar);
 
+  // TODO: Vector types.
+  getActionDefinitionsBuilder({G_FMAXIMUM, G_FMINIMUM})
+      .legalFor({MinFPScalar, s32, s64})
+      .minScalar(0, MinFPScalar);
+
   // TODO: Libcall support for s128.
   // TODO: s16 should be legal with full FP16 support.
   getActionDefinitionsBuilder({G_LROUND, G_LLROUND})
@@ -817,6 +852,11 @@ bool AArch64LegalizerInfo::legalizeCustom(LegalizerHelper &Helper,
     return legalizeAtomicCmpxchg128(MI, MRI, Helper);
   case TargetOpcode::G_CTTZ:
     return legalizeCTTZ(MI, Helper);
+  case TargetOpcode::G_BZERO:
+  case TargetOpcode::G_MEMCPY:
+  case TargetOpcode::G_MEMMOVE:
+  case TargetOpcode::G_MEMSET:
+    return legalizeMemOps(MI, Helper);
   }
 
   llvm_unreachable("expected switch to return");
@@ -972,6 +1012,15 @@ bool AArch64LegalizerInfo::legalizeIntrinsic(LegalizerHelper &Helper,
     MachineIRBuilder &MIB = Helper.MIRBuilder;
     MIB.buildConstant(MI.getOperand(0).getReg(), 0);
     MI.eraseFromParent();
+    return true;
+  }
+  case Intrinsic::aarch64_mops_memset_tag: {
+    assert(MI.getOpcode() == TargetOpcode::G_INTRINSIC_W_SIDE_EFFECTS);
+    // Zext the value to 64 bit
+    MachineIRBuilder MIB(MI);
+    auto &Value = MI.getOperand(3);
+    Register ZExtValueReg = MIB.buildAnyExt(LLT::scalar(64), Value).getReg(0);
+    Value.setReg(ZExtValueReg);
     return true;
   }
   }
@@ -1343,4 +1392,21 @@ bool AArch64LegalizerInfo::legalizeCTTZ(MachineInstr &MI,
   MIRBuilder.buildCTLZ(MI.getOperand(0).getReg(), BitReverse);
   MI.eraseFromParent();
   return true;
+}
+
+bool AArch64LegalizerInfo::legalizeMemOps(MachineInstr &MI,
+                                          LegalizerHelper &Helper) const {
+  MachineIRBuilder &MIRBuilder = Helper.MIRBuilder;
+
+  // Tagged version MOPSMemorySetTagged is legalised in legalizeIntrinsic
+  if (MI.getOpcode() == TargetOpcode::G_MEMSET) {
+    // Zext the value operand to 64 bit
+    auto &Value = MI.getOperand(1);
+    Register ZExtValueReg =
+        MIRBuilder.buildAnyExt(LLT::scalar(64), Value).getReg(0);
+    Value.setReg(ZExtValueReg);
+    return true;
+  }
+
+  return false;
 }

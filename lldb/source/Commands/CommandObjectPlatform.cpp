@@ -145,7 +145,6 @@ public:
                             "Create a platform if needed and select it as the "
                             "current platform.",
                             "platform select <platform-name>", 0),
-        m_option_group(),
         m_platform_options(
             false) // Don't include the "--platform" option by passing false
   {
@@ -211,20 +210,18 @@ protected:
     ostrm.Printf("Available platforms:\n");
 
     PlatformSP host_platform_sp(Platform::GetHostPlatform());
-    ostrm.Printf("%s: %s\n", host_platform_sp->GetPluginName().GetCString(),
+    ostrm.Format("{0}: {1}\n", host_platform_sp->GetPluginName(),
                  host_platform_sp->GetDescription());
 
     uint32_t idx;
     for (idx = 0; true; ++idx) {
-      const char *plugin_name =
+      llvm::StringRef plugin_name =
           PluginManager::GetPlatformPluginNameAtIndex(idx);
-      if (plugin_name == nullptr)
+      if (plugin_name.empty())
         break;
-      const char *plugin_desc =
+      llvm::StringRef plugin_desc =
           PluginManager::GetPlatformPluginDescriptionAtIndex(idx);
-      if (plugin_desc == nullptr)
-        break;
-      ostrm.Printf("%s: %s\n", plugin_name, plugin_desc);
+      ostrm.Format("{0}: {1}\n", plugin_name, plugin_desc);
     }
 
     if (idx == 0) {
@@ -346,8 +343,8 @@ protected:
           if (error.Success()) {
             Stream &ostrm = result.GetOutputStream();
             if (hostname.empty())
-              ostrm.Printf("Disconnected from \"%s\"\n",
-                           platform_sp->GetPluginName().GetCString());
+              ostrm.Format("Disconnected from \"{0}\"\n",
+                           platform_sp->GetPluginName());
             else
               ostrm.Printf("Disconnected from \"%s\"\n", hostname.c_str());
             result.SetStatus(eReturnStatusSuccessFinishResult);
@@ -356,9 +353,8 @@ protected:
           }
         } else {
           // Not connected...
-          result.AppendErrorWithFormat(
-              "not connected to '%s'",
-              platform_sp->GetPluginName().GetCString());
+          result.AppendErrorWithFormatv("not connected to '{0}'",
+                                        platform_sp->GetPluginName());
         }
       } else {
         // Bad args
@@ -380,7 +376,6 @@ public:
                             "Set settings for the current target's platform, "
                             "or for a platform by name.",
                             "platform settings", 0),
-        m_options(),
         m_option_working_dir(LLDB_OPT_SET_1, false, "working-dir", 'w',
                              CommandCompletions::eRemoteDiskDirectoryCompletion,
                              eArgTypePath,
@@ -420,8 +415,7 @@ public:
   CommandObjectPlatformMkDir(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "platform mkdir",
                             "Make a new directory on the remote end.", nullptr,
-                            0),
-        m_options() {}
+                            0) {}
 
   ~CommandObjectPlatformMkDir() override = default;
 
@@ -467,8 +461,7 @@ class CommandObjectPlatformFOpen : public CommandObjectParsed {
 public:
   CommandObjectPlatformFOpen(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "platform file open",
-                            "Open a file on the remote end.", nullptr, 0),
-        m_options() {}
+                            "Open a file on the remote end.", nullptr, 0) {}
 
   ~CommandObjectPlatformFOpen() override = default;
 
@@ -569,8 +562,7 @@ public:
   CommandObjectPlatformFRead(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "platform file read",
                             "Read data from a file on the remote end.", nullptr,
-                            0),
-        m_options() {}
+                            0) {}
 
   ~CommandObjectPlatformFRead() override = default;
 
@@ -608,7 +600,7 @@ public:
 protected:
   class CommandOptions : public Options {
   public:
-    CommandOptions() : Options() {}
+    CommandOptions() {}
 
     ~CommandOptions() override = default;
 
@@ -663,8 +655,7 @@ public:
   CommandObjectPlatformFWrite(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "platform file write",
                             "Write data to a file on the remote end.", nullptr,
-                            0),
-        m_options() {}
+                            0) {}
 
   ~CommandObjectPlatformFWrite() override = default;
 
@@ -701,7 +692,7 @@ public:
 protected:
   class CommandOptions : public Options {
   public:
-    CommandOptions() : Options() {}
+    CommandOptions() {}
 
     ~CommandOptions() override = default;
 
@@ -1067,7 +1058,18 @@ public:
   CommandObjectPlatformPutFile(CommandInterpreter &interpreter)
       : CommandObjectParsed(
             interpreter, "platform put-file",
-            "Transfer a file from this system to the remote end.", nullptr, 0) {
+            "Transfer a file from this system to the remote end.",
+            "platform put-file <source> [<destination>]", 0) {
+    SetHelpLong(
+        R"(Examples:
+
+(lldb) platform put-file /source/foo.txt /destination/bar.txt
+
+(lldb) platform put-file /source/foo.txt
+
+    Relative source file paths are resolved against lldb's local working directory.
+
+    Omitting the destination places the file in the platform working directory.)");
   }
 
   ~CommandObjectPlatformPutFile() override = default;
@@ -1116,8 +1118,7 @@ public:
       : CommandObjectParsed(interpreter, "platform process launch",
                             "Launch a new process on a remote platform.",
                             "platform process launch program",
-                            eCommandRequiresTarget | eCommandTryTargetAPILock),
-        m_options(), m_all_options() {
+                            eCommandRequiresTarget | eCommandTryTargetAPILock) {
     m_all_options.Append(&m_options);
     m_all_options.Finalize();
   }
@@ -1209,8 +1210,7 @@ public:
       : CommandObjectParsed(interpreter, "platform process list",
                             "List processes on a remote platform by name, pid, "
                             "or many other matching attributes.",
-                            "platform process list", 0),
-        m_options() {}
+                            "platform process list", 0) {}
 
   ~CommandObjectPlatformProcessList() override = default;
 
@@ -1278,15 +1278,14 @@ protected:
 
             if (matches == 0) {
               if (match_desc)
-                result.AppendErrorWithFormat(
-                    "no processes were found that %s \"%s\" on the \"%s\" "
+                result.AppendErrorWithFormatv(
+                    "no processes were found that {0} \"{1}\" on the \"{2}\" "
                     "platform\n",
-                    match_desc, match_name,
-                    platform_sp->GetPluginName().GetCString());
+                    match_desc, match_name, platform_sp->GetPluginName());
               else
-                result.AppendErrorWithFormat(
-                    "no processes were found on the \"%s\" platform\n",
-                    platform_sp->GetPluginName().GetCString());
+                result.AppendErrorWithFormatv(
+                    "no processes were found on the \"{0}\" platform\n",
+                    platform_sp->GetPluginName());
             } else {
               result.AppendMessageWithFormat(
                   "%u matching process%s found on \"%s\"", matches,
@@ -1317,7 +1316,7 @@ protected:
 
   class CommandOptions : public Options {
   public:
-    CommandOptions() : Options(), match_info() {}
+    CommandOptions() {}
 
     ~CommandOptions() override = default;
 
@@ -1532,9 +1531,8 @@ protected:
           }
         } else {
           // Not connected...
-          result.AppendErrorWithFormat(
-              "not connected to '%s'",
-              platform_sp->GetPluginName().GetCString());
+          result.AppendErrorWithFormatv("not connected to '{0}'",
+                                        platform_sp->GetPluginName());
         }
       } else {
         // No args
@@ -1554,7 +1552,7 @@ class CommandObjectPlatformProcessAttach : public CommandObjectParsed {
 public:
   class CommandOptions : public Options {
   public:
-    CommandOptions() : Options() {
+    CommandOptions() {
       // Keep default values of all options in one place: OptionParsingStarting
       // ()
       OptionParsingStarting(nullptr);
@@ -1616,8 +1614,7 @@ public:
   CommandObjectPlatformProcessAttach(CommandInterpreter &interpreter)
       : CommandObjectParsed(interpreter, "platform process attach",
                             "Attach to a process.",
-                            "platform process attach <cmd-options>"),
-        m_options() {}
+                            "platform process attach <cmd-options>") {}
 
   ~CommandObjectPlatformProcessAttach() override = default;
 
@@ -1683,7 +1680,7 @@ class CommandObjectPlatformShell : public CommandObjectRaw {
 public:
   class CommandOptions : public Options {
   public:
-    CommandOptions() : Options() {}
+    CommandOptions() {}
 
     ~CommandOptions() override = default;
 
@@ -1741,8 +1738,7 @@ public:
   CommandObjectPlatformShell(CommandInterpreter &interpreter)
       : CommandObjectRaw(interpreter, "platform shell",
                          "Run a shell command on the current platform.",
-                         "platform shell <shell-command>", 0),
-        m_options() {}
+                         "platform shell <shell-command>", 0) {}
 
   ~CommandObjectPlatformShell() override = default;
 

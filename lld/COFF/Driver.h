@@ -30,8 +30,7 @@
 namespace lld {
 namespace coff {
 
-class LinkerDriver;
-extern LinkerDriver *driver;
+extern std::unique_ptr<class LinkerDriver> driver;
 
 using llvm::COFF::MachineTypes;
 using llvm::COFF::WindowsSubsystem;
@@ -176,6 +175,7 @@ void parseSubsystem(StringRef arg, WindowsSubsystem *sys, uint32_t *major,
 
 void parseAlternateName(StringRef);
 void parseMerge(StringRef);
+void parsePDBPageSize(StringRef);
 void parseSection(StringRef);
 void parseAligncomm(StringRef);
 

@@ -21,7 +21,6 @@
 #include "llvm/ADT/SetVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/TrackingMDRef.h"
 #include "llvm/Support/Casting.h"
@@ -46,6 +45,7 @@ namespace llvm {
     Function *DeclareFn;     ///< llvm.dbg.declare
     Function *ValueFn;       ///< llvm.dbg.value
     Function *LabelFn;       ///< llvm.dbg.label
+    Function *AddrFn;        ///< llvm.dbg.addr
 
     SmallVector<Metadata *, 4> AllEnumTypes;
     /// Track the RetainTypes, since they can be updated later on.
@@ -86,11 +86,24 @@ namespace llvm {
     Instruction *insertLabel(DILabel *LabelInfo, const DILocation *DL,
                              BasicBlock *InsertBB, Instruction *InsertBefore);
 
+    /// Internal helper with common code used by insertDbg{Value,Addr}Intrinsic.
+    Instruction *insertDbgIntrinsic(llvm::Function *Intrinsic, llvm::Value *Val,
+                                    DILocalVariable *VarInfo,
+                                    DIExpression *Expr, const DILocation *DL,
+                                    BasicBlock *InsertBB,
+                                    Instruction *InsertBefore);
+
     /// Internal helper for insertDbgValueIntrinsic.
     Instruction *
     insertDbgValueIntrinsic(llvm::Value *Val, DILocalVariable *VarInfo,
                             DIExpression *Expr, const DILocation *DL,
                             BasicBlock *InsertBB, Instruction *InsertBefore);
+
+    /// Internal helper for insertDbgAddrIntrinsic.
+    Instruction *
+    insertDbgAddrIntrinsic(llvm::Value *Val, DILocalVariable *VarInfo,
+                           DIExpression *Expr, const DILocation *DL,
+                           BasicBlock *InsertBB, Instruction *InsertBefore);
 
   public:
     /// Construct a builder for a module.
@@ -219,11 +232,12 @@ namespace llvm {
     /// \param AlignInBits       Alignment. (optional)
     /// \param DWARFAddressSpace DWARF address space. (optional)
     /// \param Name              Pointer type name. (optional)
-    DIDerivedType *createPointerType(DIType *PointeeTy, uint64_t SizeInBits,
-                                     uint32_t AlignInBits = 0,
-                                     Optional<unsigned> DWARFAddressSpace =
-                                         None,
-                                     StringRef Name = "");
+    /// \param Annotations       Member annotations.
+    DIDerivedType *
+    createPointerType(DIType *PointeeTy, uint64_t SizeInBits,
+                      uint32_t AlignInBits = 0,
+                      Optional<unsigned> DWARFAddressSpace = None,
+                      StringRef Name = "", DINodeArray Annotations = nullptr);
 
     /// Create debugging information entry for a pointer to member.
     /// \param PointeeTy Type pointed to by this pointer.
@@ -250,9 +264,11 @@ namespace llvm {
     /// \param LineNo      Line number.
     /// \param Context     The surrounding context for the typedef.
     /// \param AlignInBits Alignment. (optional)
+    /// \param Annotations Annotations. (optional)
     DIDerivedType *createTypedef(DIType *Ty, StringRef Name, DIFile *File,
                                  unsigned LineNo, DIScope *Context,
-                                 uint32_t AlignInBits = 0);
+                                 uint32_t AlignInBits = 0,
+                                 DINodeArray Annotations = nullptr);
 
     /// Create debugging information entry for a 'friend'.
     DIDerivedType *createFriend(DIType *Ty, DIType *FriendTy);
@@ -695,7 +711,6 @@ namespace llvm {
     /// variable which has a complex address expression for its address.
     /// \param Addr        An array of complex address operations.
     DIExpression *createExpression(ArrayRef<uint64_t> Addr = None);
-    DIExpression *createExpression(ArrayRef<int64_t> Addr);
 
     /// Create an expression for a variable that does not have an address, but
     /// does have a constant value.
@@ -926,6 +941,30 @@ namespace llvm {
                                          DIExpression *Expr,
                                          const DILocation *DL,
                                          Instruction *InsertBefore);
+
+    /// Insert a new llvm.dbg.addr intrinsic call.
+    /// \param Addr          llvm::Value of the address
+    /// \param VarInfo      Variable's debug info descriptor.
+    /// \param Expr         A complex location expression.
+    /// \param DL           Debug info location.
+    /// \param InsertAtEnd Location for the new intrinsic.
+    Instruction *insertDbgAddrIntrinsic(llvm::Value *Addr,
+                                        DILocalVariable *VarInfo,
+                                        DIExpression *Expr,
+                                        const DILocation *DL,
+                                        BasicBlock *InsertAtEnd);
+
+    /// Insert a new llvm.dbg.addr intrinsic call.
+    /// \param Addr         llvm::Value of the address.
+    /// \param VarInfo      Variable's debug info descriptor.
+    /// \param Expr         A complex location expression.
+    /// \param DL           Debug info location.
+    /// \param InsertBefore Location for the new intrinsic.
+    Instruction *insertDbgAddrIntrinsic(llvm::Value *Addr,
+                                        DILocalVariable *VarInfo,
+                                        DIExpression *Expr,
+                                        const DILocation *DL,
+                                        Instruction *InsertBefore);
 
     /// Replace the vtable holder in the given type.
     ///

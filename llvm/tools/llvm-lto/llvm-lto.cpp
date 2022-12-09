@@ -46,6 +46,7 @@
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/ToolOutputFile.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/WithColor.h"
 #include "llvm/Target/TargetOptions.h"
 #include <algorithm>
 #include <cassert>
@@ -267,7 +268,7 @@ static cl::opt<bool>
 namespace {
 
 struct ModuleInfo {
-  std::vector<bool> CanBeHidden;
+  BitVector CanBeHidden;
 };
 
 } // end anonymous namespace
@@ -375,7 +376,7 @@ static void printIndexStats() {
         ExitOnErr(getModuleSummaryIndexForFile(Filename));
     // Skip files without a module summary.
     if (!Index)
-      report_fatal_error(Filename + " does not contain an index");
+      report_fatal_error(Twine(Filename) + " does not contain an index");
 
     unsigned Calls = 0, Refs = 0, Functions = 0, Alias = 0, Globals = 0;
     for (auto &Summaries : *Index) {
@@ -496,7 +497,7 @@ static void createCombinedModuleSummaryIndex() {
   raw_fd_ostream OS(OutputFilename + ".thinlto.bc", EC,
                     sys::fs::OpenFlags::OF_None);
   error(EC, "error opening the file '" + OutputFilename + ".thinlto.bc'");
-  WriteIndexToFile(CombinedIndex, OS);
+  writeIndexToFile(CombinedIndex, OS);
   OS.close();
 }
 
@@ -659,7 +660,7 @@ private:
     std::error_code EC;
     raw_fd_ostream OS(OutputFilename, EC, sys::fs::OpenFlags::OF_None);
     error(EC, "error opening the file '" + OutputFilename + "'");
-    WriteIndexToFile(*CombinedIndex, OS);
+    writeIndexToFile(*CombinedIndex, OS);
   }
 
   /// Load the combined index from disk, then compute and generate
@@ -697,7 +698,7 @@ private:
       std::error_code EC;
       raw_fd_ostream OS(OutputName, EC, sys::fs::OpenFlags::OF_None);
       error(EC, "error opening the file '" + OutputName + "'");
-      WriteIndexToFile(*Index, OS, &ModuleToSummariesForIndex);
+      writeIndexToFile(*Index, OS, &ModuleToSummariesForIndex);
     }
   }
 
@@ -1097,8 +1098,7 @@ int main(int argc, char **argv) {
         error("writing merged module failed.");
     }
 
-    auto AddStream =
-        [&](size_t Task) -> std::unique_ptr<lto::NativeObjectStream> {
+    auto AddStream = [&](size_t Task) -> std::unique_ptr<CachedFileStream> {
       std::string PartFilename = OutputFilename;
       if (Parallelism != 1)
         PartFilename += "." + utostr(Task);
@@ -1108,7 +1108,7 @@ int main(int argc, char **argv) {
           std::make_unique<raw_fd_ostream>(PartFilename, EC, sys::fs::OF_None);
       if (EC)
         error("error opening the file '" + PartFilename + "': " + EC.message());
-      return std::make_unique<lto::NativeObjectStream>(std::move(S));
+      return std::make_unique<CachedFileStream>(std::move(S));
     };
 
     if (!CodeGen.compileOptimized(AddStream, Parallelism))

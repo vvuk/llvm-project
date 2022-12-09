@@ -36,6 +36,8 @@ using namespace llvm;
 #define DEBUG_TYPE "loop-delete"
 
 STATISTIC(NumDeleted, "Number of loops deleted");
+STATISTIC(NumBackedgesBroken,
+          "Number of loops for which we managed to break the backedge");
 
 static cl::opt<bool> EnableSymbolicExecution(
     "loop-deletion-enable-symbolic-execution", cl::Hidden, cl::init(true),
@@ -197,6 +199,14 @@ getValueOnFirstIteration(Value *V, DenseMap<Value *, Value *> &FirstIterValue,
     Value *RHS =
         getValueOnFirstIteration(Cmp->getOperand(1), FirstIterValue, SQ);
     FirstIterV = SimplifyICmpInst(Cmp->getPredicate(), LHS, RHS, SQ);
+  } else if (auto *Select = dyn_cast<SelectInst>(V)) {
+    Value *Cond =
+        getValueOnFirstIteration(Select->getCondition(), FirstIterValue, SQ);
+    if (auto *C = dyn_cast<ConstantInt>(Cond)) {
+      auto *Selected = C->isAllOnesValue() ? Select->getTrueValue()
+                                           : Select->getFalseValue();
+      FirstIterV = getValueOnFirstIteration(Selected, FirstIterValue, SQ);
+    }
   }
   if (!FirstIterV)
     FirstIterV = V;
@@ -397,23 +407,19 @@ breakBackedgeIfNotTaken(Loop *L, DominatorTree &DT, ScalarEvolution &SE,
   if (!L->getLoopLatch())
     return LoopDeletionResult::Unmodified;
 
-  auto *BTC = SE.getSymbolicMaxBackedgeTakenCount(L);
-  if (BTC->isZero()) {
-    // SCEV knows this backedge isn't taken!
-    breakLoopBackedge(L, DT, SE, LI, MSSA);
-    return LoopDeletionResult::Deleted;
-  }
-
-  // If SCEV leaves open the possibility of a zero trip count, see if
-  // symbolically evaluating the first iteration lets us prove the backedge
-  // unreachable.
-  if (isa<SCEVCouldNotCompute>(BTC) || !SE.isKnownNonZero(BTC))
-    if (canProveExitOnFirstIteration(L, DT, LI)) {
-      breakLoopBackedge(L, DT, SE, LI, MSSA);
-      return LoopDeletionResult::Deleted;
+  auto *BTCMax = SE.getConstantMaxBackedgeTakenCount(L);
+  if (!BTCMax->isZero()) {
+    auto *BTC = SE.getBackedgeTakenCount(L);
+    if (!BTC->isZero()) {
+      if (!isa<SCEVCouldNotCompute>(BTC) && SE.isKnownNonZero(BTC))
+        return LoopDeletionResult::Unmodified;
+      if (!canProveExitOnFirstIteration(L, DT, LI))
+        return LoopDeletionResult::Unmodified;
     }
-
-  return LoopDeletionResult::Unmodified;
+  }
+  ++NumBackedgesBroken;
+  breakLoopBackedge(L, DT, SE, LI, MSSA);
+  return LoopDeletionResult::Deleted;
 }
 
 /// Remove a loop if it is dead.

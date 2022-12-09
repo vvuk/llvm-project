@@ -21,9 +21,9 @@
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/ScopedPrinter.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 
 #include "lldb/Core/Address.h"
@@ -1097,21 +1097,21 @@ DisassemblerLLVMC::DisassemblerLLVMC(const ArchSpec &arch,
       thumb_arch_name.erase(0, 3);
       thumb_arch_name.insert(0, "thumb");
     } else {
-      thumb_arch_name = "thumbv8.7a";
+      thumb_arch_name = "thumbv9.3a";
     }
     thumb_arch.GetTriple().setArchName(llvm::StringRef(thumb_arch_name));
   }
 
   // If no sub architecture specified then use the most recent arm architecture
-  // so the disassembler will return all instruction. Without it we will see a
-  // lot of unknow opcode in case the code uses instructions which are not
-  // available in the oldest arm version (used when no sub architecture is
-  // specified)
+  // so the disassembler will return all instructions. Without it we will see a
+  // lot of unknown opcodes if the code uses instructions which are not
+  // available in the oldest arm version (which is used when no sub architecture
+  // is specified).
   if (triple.getArch() == llvm::Triple::arm &&
       triple.getSubArch() == llvm::Triple::NoSubArch)
-    triple.setArchName("armv8.7a");
+    triple.setArchName("armv9.3a");
 
-  std::string features_str = "";
+  std::string features_str;
   const char *triple_str = triple.getTriple().c_str();
 
   // ARM Cortex M0-M7 devices only execute thumb instructions
@@ -1179,9 +1179,9 @@ DisassemblerLLVMC::DisassemblerLLVMC(const ArchSpec &arch,
   }
 
   // If any AArch64 variant, enable latest ISA with any optional
-  // extensions like SVE.
+  // extensions like MTE.
   if (triple.isAArch64()) {
-    features_str += "+v8.7a,+sve2,+mte";
+    features_str += "+v9.3a,+mte";
 
     if (triple.getVendor() == llvm::Triple::Apple)
       cpu = "apple-latest";
@@ -1293,11 +1293,6 @@ void DisassemblerLLVMC::Initialize() {
 
 void DisassemblerLLVMC::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
-}
-
-ConstString DisassemblerLLVMC::GetPluginNameStatic() {
-  static ConstString g_name("llvm-mc");
-  return g_name;
 }
 
 int DisassemblerLLVMC::OpInfoCallback(void *disassembler, uint64_t pc,
@@ -1461,6 +1456,3 @@ const char *DisassemblerLLVMC::SymbolLookup(uint64_t value, uint64_t *type_ptr,
   *name = nullptr;
   return nullptr;
 }
-
-// PluginInterface protocol
-ConstString DisassemblerLLVMC::GetPluginName() { return GetPluginNameStatic(); }

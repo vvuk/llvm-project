@@ -13,15 +13,16 @@
 
 #include "AMDGPU.h"
 #include "GCNSubtarget.h"
+#include "Utils/AMDGPUBaseInfo.h"
 #include "llvm/Analysis/CaptureTracking.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/IntrinsicsAMDGPU.h"
 #include "llvm/IR/IntrinsicsR600.h"
 #include "llvm/Pass.h"
 #include "llvm/Target/TargetMachine.h"
-#include "Utils/AMDGPUBaseInfo.h"
 
 #define DEBUG_TYPE "amdgpu-promote-alloca"
 
@@ -274,7 +275,7 @@ AMDGPUPromoteAllocaImpl::getLocalSizeYZ(IRBuilder<> &Builder) {
 
   // We could do a single 64-bit load here, but it's likely that the basic
   // 32-bit and extract sequence is already present, and it is probably easier
-  // to CSE this. The loads should be mergable later anyway.
+  // to CSE this. The loads should be mergeable later anyway.
   Value *GEPXY = Builder.CreateConstInBoundsGEP1_64(I32Ty, CastDispatchPtr, 1);
   LoadInst *LoadXY = Builder.CreateAlignedLoad(I32Ty, GEPXY, Align(4));
 
@@ -789,6 +790,17 @@ bool AMDGPUPromoteAllocaImpl::hasSufficientLocalMem(const Function &F) {
     Align Alignment =
         DL.getValueOrABITypeAlignment(GV->getAlign(), GV->getValueType());
     uint64_t AllocSize = DL.getTypeAllocSize(GV->getValueType());
+
+    // HIP uses an extern unsized array in local address space for dynamically
+    // allocated shared memory.  In that case, we have to disable the promotion.
+    if (GV->hasExternalLinkage() && AllocSize == 0) {
+      LocalMemLimit = 0;
+      LLVM_DEBUG(dbgs() << "Function has a reference to externally allocated "
+                           "local memory. Promoting to local memory "
+                           "disabled.\n");
+      return false;
+    }
+
     AllocatedSizes.emplace_back(AllocSize, Alignment);
   }
 
@@ -939,7 +951,7 @@ bool AMDGPUPromoteAllocaImpl::handleAlloca(AllocaInst &I, bool SufficientLDS) {
       GlobalVariable::NotThreadLocal,
       AMDGPUAS::LOCAL_ADDRESS);
   GV->setUnnamedAddr(GlobalValue::UnnamedAddr::Global);
-  GV->setAlignment(MaybeAlign(I.getAlignment()));
+  GV->setAlignment(I.getAlign());
 
   Value *TCntY, *TCntZ;
 

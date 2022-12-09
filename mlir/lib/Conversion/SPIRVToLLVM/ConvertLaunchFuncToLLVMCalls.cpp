@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "../PassDetail.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
@@ -207,7 +208,7 @@ class GPULaunchLowering : public ConvertOpToLLVMPattern<gpu::LaunchFuncOp> {
     SmallVector<CopyInfo, 4> copyInfo;
     auto numKernelOperands = launchOp.getNumKernelOperands();
     auto kernelOperands = adaptor.getOperands().take_back(numKernelOperands);
-    for (auto operand : llvm::enumerate(kernelOperands)) {
+    for (const auto &operand : llvm::enumerate(kernelOperands)) {
       // Check if the kernel's operand is a ranked memref.
       auto memRefType = launchOp.getKernelOperand(operand.index())
                             .getType()
@@ -287,6 +288,8 @@ public:
     auto *context = module.getContext();
     RewritePatternSet patterns(context);
     LLVMTypeConverter typeConverter(context, options);
+    mlir::arith::populateArithmeticToLLVMConversionPatterns(typeConverter,
+                                                            patterns);
     populateMemRefToLLVMConversionPatterns(typeConverter, patterns);
     populateStdToLLVMConversionPatterns(typeConverter, patterns);
     patterns.add<GPULaunchLowering>(typeConverter);

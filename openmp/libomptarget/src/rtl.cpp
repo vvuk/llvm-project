@@ -14,10 +14,6 @@
 #include "device.h"
 #include "private.h"
 
-#if OMPT_SUPPORT
-#include "ompt-target.h"
-#endif
-
 #include <cassert>
 #include <cstdlib>
 #include <cstring>
@@ -44,7 +40,20 @@ static char *ProfileTraceFile = nullptr;
 
 __attribute__((constructor(101))) void init() {
   DP("Init target library!\n");
-  PM = new PluginManager();
+
+  bool UseEventsForAtomicTransfers = true;
+  if (const char *ForceAtomicMap = getenv("LIBOMPTARGET_MAP_FORCE_ATOMIC")) {
+    std::string ForceAtomicMapStr(ForceAtomicMap);
+    if (ForceAtomicMapStr == "false" || ForceAtomicMapStr == "FALSE")
+      UseEventsForAtomicTransfers = false;
+    else if (ForceAtomicMapStr != "true" && ForceAtomicMapStr != "TRUE")
+      fprintf(stderr,
+              "Warning: 'LIBOMPTARGET_MAP_FORCE_ATOMIC' accepts only "
+              "'true'/'TRUE' or 'false'/'FALSE' as options, '%s' ignored\n",
+              ForceAtomicMap);
+  }
+
+  PM = new PluginManager(UseEventsForAtomicTransfers);
 
 #ifdef OMPTARGET_PROFILE_ENABLED
   ProfileTraceFile = getenv("LIBOMPTARGET_PROFILE");
@@ -191,20 +200,13 @@ void RTLsTy::LoadRTLs() {
     *((void **)&R.sync_event) = dlsym(dynlib_handle, "__tgt_rtl_sync_event");
     *((void **)&R.destroy_event) =
         dlsym(dynlib_handle, "__tgt_rtl_destroy_event");
+    *((void **)&R.release_async_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_release_async_info");
+    *((void **)&R.init_async_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_init_async_info");
+    *((void **)&R.init_device_info) =
+        dlsym(dynlib_handle, "__tgt_rtl_init_device_info");
   }
-
-#if OMPT_SUPPORT
-  DP("OMPT_SUPPORT is enabled in libomptarget\n");
-  DP("Init OMPT for libomptarget\n");
-  if (libomp_start_tool) {
-    DP("Retrieve libomp_start_tool successfully\n");
-    if (!libomp_start_tool(&ompt_target_enabled)) {
-      DP("Turn off OMPT in libomptarget because libomp_start_tool returns "
-         "false\n");
-      memset(&ompt_target_enabled, 0, sizeof(ompt_target_enabled));
-    }
-  }
-#endif
 
   DP("RTLs loaded!\n");
 

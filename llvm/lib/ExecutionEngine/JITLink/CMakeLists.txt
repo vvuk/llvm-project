@@ -3,6 +3,7 @@ add_llvm_component_library(LLVMJITLink
   JITLink.cpp
   JITLinkGeneric.cpp
   JITLinkMemoryManager.cpp
+  MemoryFlags.cpp
 
   # Formats:
 
@@ -40,6 +41,7 @@ add_llvm_component_library(LLVMJITLink
 target_link_libraries(LLVMJITLink
   PRIVATE
   LLVMObject
+  LLVMOrcShared
   LLVMOrcTargetProcess
   LLVMSupport
 )

@@ -20,14 +20,13 @@
 namespace llvm {
 class CallBase;
 class Function;
-class Module;
 
 template <typename T> class InlineOrder {
 public:
   using reference = T &;
   using const_reference = const T &;
 
-  virtual ~InlineOrder() {}
+  virtual ~InlineOrder() = default;
 
   virtual size_t size() = 0;
 
@@ -160,8 +159,7 @@ public:
     auto PredWrapper = [=](HeapT P) -> bool {
       return Pred(std::make_pair(P.first, 0));
     };
-    Heap.erase(std::remove_if(Heap.begin(), Heap.end(), PredWrapper),
-               Heap.end());
+    llvm::erase_if(Heap, PredWrapper);
     std::make_heap(Heap.begin(), Heap.end(), cmp);
   }
 

@@ -1,15 +1,18 @@
-// -*- C++ -*-
-//===------------------------------ span ---------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-//===---------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 // UNSUPPORTED: c++03, c++11, c++14, c++17
+// UNSUPPORTED: libcpp-no-concepts
 
 // <span>
 
+//   template<class It, class EndOrSize>
+//     span(It, EndOrSize) -> span<remove_reference_t<iter_reference_t<_It>>>;
+//
 //   template<class T, size_t N>
 //     span(T (&)[N]) -> span<T, N>;
 //
@@ -19,12 +22,8 @@
 //   template<class T, size_t N>
 //     span(const array<T, N>&) -> span<const T, N>;
 //
-//   template<class Container>
-//     span(Container&) -> span<typename Container::value_type>;
-//
-//   template<class Container>
-//     span(const Container&) -> span<const typename Container::value_type>;
-
+//   template<class R>
+//     span(R&&) -> span<remove_reference_t<ranges::range_reference_t<R>>>;
 
 
 #include <span>
@@ -35,10 +34,25 @@
 
 #include "test_macros.h"
 
-int main(int, char**)
-{
+void test_iterator_sentinel() {
+  int arr[] = {1, 2, 3};
+  {
+  std::span s{std::begin(arr), std::end(arr)};
+  ASSERT_SAME_TYPE(decltype(s), std::span<int>);
+  assert(s.size() == std::size(arr));
+  assert(s.data() == std::data(arr));
+  }
+  {
+  std::span s{std::begin(arr), 3};
+  ASSERT_SAME_TYPE(decltype(s), std::span<int>);
+  assert(s.size() == std::size(arr));
+  assert(s.data() == std::data(arr));
+  }
+}
+
+void test_c_array() {
     {
-    int arr[] = {1,2,3};
+    int arr[] = {1, 2, 3};
     std::span s{arr};
     ASSERT_SAME_TYPE(decltype(s), std::span<int, 3>);
     assert(s.size() == std::size(arr));
@@ -52,7 +66,9 @@ int main(int, char**)
     assert(s.size() == std::size(arr));
     assert(s.data() == std::data(arr));
     }
+}
 
+void test_std_array() {
     {
     std::array<double, 4> arr = {1.0, 2.0, 3.0, 4.0};
     std::span s{arr};
@@ -68,7 +84,10 @@ int main(int, char**)
     assert(s.size() == arr.size());
     assert(s.data() == arr.data());
     }
+}
 
+#ifndef _LIBCPP_HAS_NO_INCOMPLETE_RANGES
+void test_range_std_container() {
     {
     std::string str{"ABCDE"};
     std::span s{str};
@@ -84,6 +103,18 @@ int main(int, char**)
     assert(s.size() == str.size());
     assert(s.data() == str.data());
     }
+}
+#endif // _LIBCPP_HAS_NO_INCOMPLETE_RANGES
+
+int main(int, char**)
+{
+  test_iterator_sentinel();
+  test_c_array();
+  test_std_array();
+
+#ifndef _LIBCPP_HAS_NO_INCOMPLETE_RANGES
+  test_range_std_container();
+#endif // _LIBCPP_HAS_NO_INCOMPLETE_RANGES
 
   return 0;
 }

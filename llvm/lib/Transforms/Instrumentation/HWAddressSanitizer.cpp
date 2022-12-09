@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 //
 /// \file
-/// This file is a part of HWAddressSanitizer, an address sanity checker
-/// based on tagged addressing.
+/// This file is a part of HWAddressSanitizer, an address basic correctness
+/// checker based on tagged addressing.
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Instrumentation/HWAddressSanitizer.h"
@@ -304,6 +304,7 @@ public:
   static bool isStandardLifetime(const AllocaInfo &AllocaInfo,
                                  const DominatorTree &DT);
   bool instrumentStack(
+      bool ShouldDetectUseAfterScope,
       MapVector<AllocaInst *, AllocaInfo> &AllocasToInstrument,
       SmallVector<Instruction *, 4> &UnrecognizedLifetimes,
       DenseMap<AllocaInst *, std::vector<DbgVariableIntrinsic *>> &AllocaDbgMap,
@@ -356,7 +357,7 @@ private:
     bool WithFrameRecord;
 
     void init(Triple &TargetTriple, bool InstrumentWithCalls);
-    unsigned getObjectAlignment() const { return 1U << Scale; }
+    uint64_t getObjectAlignment() const { return 1ULL << Scale; }
   };
 
   ShadowMapping Mapping;
@@ -839,7 +840,7 @@ void HWAddressSanitizer::getInterestingMemoryOperands(
     Interesting.emplace_back(I, XCHG->getPointerOperandIndex(), true,
                              XCHG->getCompareOperand()->getType(), None);
   } else if (auto CI = dyn_cast<CallInst>(I)) {
-    for (unsigned ArgNo = 0; ArgNo < CI->getNumArgOperands(); ArgNo++) {
+    for (unsigned ArgNo = 0; ArgNo < CI->arg_size(); ArgNo++) {
       if (!ClInstrumentByval || !CI->isByValArgument(ArgNo) ||
           ignoreAccess(I, CI->getArgOperand(ArgNo)))
         continue;
@@ -1359,6 +1360,7 @@ bool HWAddressSanitizer::isStandardLifetime(const AllocaInfo &AllocaInfo,
 }
 
 bool HWAddressSanitizer::instrumentStack(
+    bool ShouldDetectUseAfterScope,
     MapVector<AllocaInst *, AllocaInfo> &AllocasToInstrument,
     SmallVector<Instruction *, 4> &UnrecognizedLifetimes,
     DenseMap<AllocaInst *, std::vector<DbgVariableIntrinsic *>> &AllocaDbgMap,
@@ -1403,16 +1405,16 @@ bool HWAddressSanitizer::instrumentStack(
 
     size_t Size = getAllocaSizeInBytes(*AI);
     size_t AlignedSize = alignTo(Size, Mapping.getObjectAlignment());
+    auto TagEnd = [&](Instruction *Node) {
+      IRB.SetInsertPoint(Node);
+      Value *UARTag = getUARTag(IRB, StackTag);
+      tagAlloca(IRB, AI, UARTag, AlignedSize);
+    };
     bool StandardLifetime =
         UnrecognizedLifetimes.empty() && isStandardLifetime(Info, GetDT());
-    if (DetectUseAfterScope && StandardLifetime) {
+    if (ShouldDetectUseAfterScope && StandardLifetime) {
       IntrinsicInst *Start = Info.LifetimeStart[0];
       IRB.SetInsertPoint(Start->getNextNode());
-      auto TagEnd = [&](Instruction *Node) {
-        IRB.SetInsertPoint(Node);
-        Value *UARTag = getUARTag(IRB, StackTag);
-        tagAlloca(IRB, AI, UARTag, AlignedSize);
-      };
       tagAlloca(IRB, AI, Tag, Size);
       if (!forAllReachableExits(GetDT(), GetPDT(), Start, Info.LifetimeEnd,
                                 RetVec, TagEnd)) {
@@ -1421,11 +1423,8 @@ bool HWAddressSanitizer::instrumentStack(
       }
     } else {
       tagAlloca(IRB, AI, Tag, Size);
-      for (auto *RI : RetVec) {
-        IRB.SetInsertPoint(RI);
-        Value *UARTag = getUARTag(IRB, StackTag);
-        tagAlloca(IRB, AI, UARTag, AlignedSize);
-      }
+      for (auto *RI : RetVec)
+        TagEnd(RI);
       if (!StandardLifetime) {
         for (auto &II : Info.LifetimeStart)
           II->eraseFromParent();
@@ -1508,8 +1507,14 @@ bool HWAddressSanitizer::sanitizeFunction(
   SmallVector<Instruction *, 8> LandingPadVec;
   SmallVector<Instruction *, 4> UnrecognizedLifetimes;
   DenseMap<AllocaInst *, std::vector<DbgVariableIntrinsic *>> AllocaDbgMap;
+  bool CallsReturnTwice = false;
   for (auto &BB : F) {
     for (auto &Inst : BB) {
+      if (CallInst *CI = dyn_cast<CallInst>(&Inst)) {
+        if (CI->canReturnTwice()) {
+          CallsReturnTwice = true;
+        }
+      }
       if (InstrumentStack) {
         if (AllocaInst *AI = dyn_cast<AllocaInst>(&Inst)) {
           if (isInterestingAlloca(*AI))
@@ -1534,9 +1539,14 @@ bool HWAddressSanitizer::sanitizeFunction(
         }
       }
 
-      if (isa<ReturnInst>(Inst) || isa<ResumeInst>(Inst) ||
-          isa<CleanupReturnInst>(Inst))
+      if (isa<ReturnInst>(Inst)) {
+        if (CallInst *CI = Inst.getParent()->getTerminatingMustTailCall())
+          RetVec.push_back(CI);
+        else
+          RetVec.push_back(&Inst);
+      } else if (isa<ResumeInst, CleanupReturnInst>(Inst)) {
         RetVec.push_back(&Inst);
+      }
 
       if (auto *DVI = dyn_cast<DbgVariableIntrinsic>(&Inst)) {
         for (Value *V : DVI->location_ops()) {
@@ -1588,7 +1598,12 @@ bool HWAddressSanitizer::sanitizeFunction(
   if (!AllocasToInstrument.empty()) {
     Value *StackTag =
         ClGenerateTagsWithCalls ? nullptr : getStackBaseTag(EntryIRB);
-    instrumentStack(AllocasToInstrument, UnrecognizedLifetimes, AllocaDbgMap,
+    // Calls to functions that may return twice (e.g. setjmp) confuse the
+    // postdominator analysis, and will leave us to keep memory tagged after
+    // function return. Work around this by always untagging at every return
+    // statement if return_twice functions are called.
+    instrumentStack(DetectUseAfterScope && !CallsReturnTwice,
+                    AllocasToInstrument, UnrecognizedLifetimes, AllocaDbgMap,
                     RetVec, StackTag, GetDT, GetPDT);
   }
   // Pad and align each of the allocas that we instrumented to stop small
@@ -1771,9 +1786,10 @@ void HWAddressSanitizer::instrumentGlobals() {
   Hasher.update(M.getSourceFileName());
   MD5::MD5Result Hash;
   Hasher.final(Hash);
-  uint8_t Tag = Hash[0] & TagMaskByte;
+  uint8_t Tag = Hash[0];
 
   for (GlobalVariable *GV : Globals) {
+    Tag &= TagMaskByte;
     // Skip tag 0 in order to avoid collisions with untagged memory.
     if (Tag == 0)
       Tag = 1;

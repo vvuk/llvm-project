@@ -126,7 +126,7 @@ namespace llvm {
     TargetOptions()
         : UnsafeFPMath(false), NoInfsFPMath(false), NoNaNsFPMath(false),
           NoTrappingFPMath(true), NoSignedZerosFPMath(false),
-          EnableAIXExtendedAltivecABI(false),
+          ApproxFuncFPMath(false), EnableAIXExtendedAltivecABI(false),
           HonorSignDependentRoundingFPMathOption(false), NoZerosInBSS(false),
           GuaranteedTailCallOpt(false), StackSymbolOrdering(true),
           EnableFastISel(false), EnableGlobalISel(false), UseInitArray(false),
@@ -140,9 +140,9 @@ namespace llvm {
           EnableMachineFunctionSplitter(false), SupportsDefaultOutlining(false),
           EmitAddrsig(false), EmitCallSiteInfo(false),
           SupportsDebugEntryValues(false), EnableDebugEntryValues(false),
-          ValueTrackingVariableLocations(false),
-          ForceDwarfFrameSection(false), XRayOmitFunctionIndex(false),
-          DebugStrictDwarf(false),
+          ValueTrackingVariableLocations(false), ForceDwarfFrameSection(false),
+          XRayOmitFunctionIndex(false), DebugStrictDwarf(false),
+          Hotpatch(false),
           FPDenormalMode(DenormalMode::IEEE, DenormalMode::IEEE) {}
 
     /// DisableFramePointerElim - This returns true if frame pointer elimination
@@ -182,6 +182,12 @@ namespace llvm {
     /// specifies that optimizations are allowed to treat the sign of a zero
     /// argument or result as insignificant.
     unsigned NoSignedZerosFPMath : 1;
+
+    /// ApproxFuncFPMath - This flag is enabled when the
+    /// -enable-approx-func-fp-math is specified on the command line. This
+    /// specifies that optimizations are allowed to substitute math functions
+    /// with approximate calculations
+    unsigned ApproxFuncFPMath : 1;
 
     /// EnableAIXExtendedAltivecABI - This flag returns true when -vec-extabi is
     /// specified. The code generator is then able to use both volatile and
@@ -336,6 +342,9 @@ namespace llvm {
     /// By default, it is set to false.
     unsigned DebugStrictDwarf : 1;
 
+    /// Emit the hotpatch flag in CodeView debug.
+    unsigned Hotpatch : 1;
+
     /// Name of the stack usage file (i.e., .su file) if user passes
     /// -fstack-usage. If empty, it can be implied that -fstack-usage is not
     /// passed on the command line.
@@ -412,6 +421,11 @@ namespace llvm {
 
     /// Machine level options.
     MCTargetOptions MCOptions;
+
+    /// Stores the filename/path of the final .o/.obj file, to be written in the
+    /// debug information. This is used for emitting the CodeView S_OBJNAME
+    /// record.
+    std::string ObjectFilenameForDebug;
   };
 
 } // End llvm namespace

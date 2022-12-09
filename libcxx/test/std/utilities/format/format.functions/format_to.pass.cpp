@@ -31,8 +31,7 @@
 #include "test_macros.h"
 #include "format_tests.h"
 
-auto test = []<class CharT, class... Args>(std::basic_string<CharT> expected,
-                                           std::basic_string<CharT> fmt,
+auto test = []<class CharT, class... Args>(std::basic_string<CharT> expected, std::basic_string<CharT> fmt,
                                            const Args&... args) {
   {
     std::basic_string<CharT> out(expected.size(), CharT(' '));
@@ -43,27 +42,25 @@ auto test = []<class CharT, class... Args>(std::basic_string<CharT> expected,
   {
     std::list<CharT> out;
     std::format_to(std::back_inserter(out), fmt, args...);
-    assert(
-        std::equal(out.begin(), out.end(), expected.begin(), expected.end()));
+    assert(std::equal(out.begin(), out.end(), expected.begin(), expected.end()));
   }
   {
     std::vector<CharT> out;
     std::format_to(std::back_inserter(out), fmt, args...);
-    assert(
-        std::equal(out.begin(), out.end(), expected.begin(), expected.end()));
+    assert(std::equal(out.begin(), out.end(), expected.begin(), expected.end()));
   }
   {
     assert(expected.size() < 4096 && "Update the size of the buffer.");
     CharT out[4096];
     CharT* it = std::format_to(out, fmt, args...);
     assert(std::distance(out, it) == int(expected.size()));
-    *it = '\0';
-    assert(out == expected);
+    // Convert to std::string since output contains '\0' for boolean tests.
+    assert(std::basic_string<CharT>(out, it) == expected);
   }
 };
 
-auto test_exception = []<class CharT, class... Args>(
-    std::string_view what, std::basic_string<CharT> fmt, const Args&... args) {
+auto test_exception =
+    []<class CharT, class... Args>(std::string_view what, std::basic_string<CharT> fmt, const Args&... args) {
 #ifndef TEST_HAS_NO_EXCEPTIONS
   try {
     std::basic_string<CharT> out;
@@ -82,10 +79,12 @@ auto test_exception = []<class CharT, class... Args>(
 };
 
 int main(int, char**) {
-  format_tests_char_to_wchar_t(test);
-
   format_tests<char>(test, test_exception);
+
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
+  format_tests_char_to_wchar_t(test);
   format_tests<wchar_t>(test, test_exception);
+#endif
 
   return 0;
 }

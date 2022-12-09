@@ -106,6 +106,12 @@ public:
   Optional<Instruction *> instCombineIntrinsic(InstCombiner &IC,
                                                IntrinsicInst &II) const;
 
+  Optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+      InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
+      APInt &UndefElts2, APInt &UndefElts3,
+      std::function<void(Instruction *, unsigned, APInt, APInt &)>
+          SimplifyAndSetOp) const;
+
   TypeSize getRegisterBitWidth(TargetTransformInfo::RegisterKind K) const {
     switch (K) {
     case TargetTransformInfo::RGK_Scalar:
@@ -125,25 +131,19 @@ public:
     return ST->getMinVectorRegisterBitWidth();
   }
 
+  Optional<unsigned> getVScaleForTuning() const {
+    return ST->getVScaleForTuning();
+  }
 
   /// Try to return an estimate cost factor that can be used as a multiplier
   /// when scalarizing an operation for a vector with ElementCount \p VF.
   /// For scalable vectors this currently takes the most pessimistic view based
   /// upon the maximum possible value for vscale.
-  unsigned getMaxNumElements(ElementCount VF,
-                             const Function *F = nullptr) const {
+  unsigned getMaxNumElements(ElementCount VF) const {
     if (!VF.isScalable())
       return VF.getFixedValue();
 
-    unsigned MaxNumVScale = 16;
-    if (F && F->hasFnAttribute(Attribute::VScaleRange)) {
-      unsigned VScaleMax =
-          F->getFnAttribute(Attribute::VScaleRange).getVScaleRangeArgs().second;
-      if (VScaleMax > 0)
-        MaxNumVScale = VScaleMax;
-    }
-
-    return MaxNumVScale * VF.getKnownMinValue();
+    return VF.getKnownMinValue() * ST->getVScaleForTuning();
   }
 
   unsigned getMaxInterleaveFactor(unsigned VF);
@@ -232,7 +232,7 @@ public:
     if (Ty->isHalfTy() || Ty->isFloatTy() || Ty->isDoubleTy())
       return true;
 
-    if (Ty->isIntegerTy(1) || Ty->isIntegerTy(8) || Ty->isIntegerTy(16) ||
+    if (Ty->isIntegerTy(8) || Ty->isIntegerTy(16) ||
         Ty->isIntegerTy(32) || Ty->isIntegerTy(64))
       return true;
 
@@ -247,8 +247,7 @@ public:
     if (isa<FixedVectorType>(DataType) && !ST->useSVEForFixedLengthVectors())
       return false; // Fall back to scalarization of masked operations.
 
-    return !DataType->getScalarType()->isIntegerTy(1) &&
-           isElementTypeLegalForScalableVector(DataType->getScalarType());
+    return isElementTypeLegalForScalableVector(DataType->getScalarType());
   }
 
   bool isLegalMaskedLoad(Type *DataType, Align Alignment) {
@@ -269,8 +268,7 @@ public:
                          DataTypeFVTy->getNumElements() < 2))
       return false;
 
-    return !DataType->getScalarType()->isIntegerTy(1) &&
-           isElementTypeLegalForScalableVector(DataType->getScalarType());
+    return isElementTypeLegalForScalableVector(DataType->getScalarType());
   }
 
   bool isLegalMaskedGather(Type *DataType, Align Alignment) const {
@@ -315,7 +313,13 @@ public:
     return 2;
   }
 
+  bool emitGetActiveLaneMask() const {
+    return ST->hasSVE();
+  }
+
   bool supportsScalableVectors() const { return ST->hasSVE(); }
+
+  bool enableScalableVectorization() const { return ST->hasSVE(); }
 
   bool isLegalToVectorizeReduction(const RecurrenceDescriptor &RdxDesc,
                                    ElementCount VF) const;

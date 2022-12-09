@@ -19,8 +19,8 @@
 
 using namespace clang::clangd;
 
-extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
-  if (size == 0)
+extern "C" int LLVMFuzzerTestOneInput(uint8_t *Data, size_t Size) {
+  if (Size == 0)
     return 0;
 
   // TODO IRIX for the build we pretend we're Linux, so we try building stuff like this that we shouldn't
@@ -28,7 +28,7 @@ extern "C" int LLVMFuzzerTestOneInput(uint8_t *data, size_t size) {
   std::FILE *In = 0;
 #else
   // fmemopen isn't portable, but I think we only run the fuzzer on Linux.
-  std::FILE *In = fmemopen(data, size, "r");
+  std::FILE *In = fmemopen(Data, Size, "r");
 #endif
   auto Transport = newJSONTransport(In, llvm::nulls(),
                                     /*InMirror=*/nullptr, /*Pretty=*/false,

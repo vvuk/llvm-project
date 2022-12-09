@@ -25,8 +25,6 @@
 #include "llvm/IR/Value.h"
 #include "llvm/Support/AtomicOrdering.h"
 #include "llvm/Support/Casting.h"
-#include <algorithm>
-#include <cassert>
 #include <cstdint>
 #include <utility>
 
@@ -59,11 +57,11 @@ protected:
   // Template alias so that all Instruction storing alignment use the same
   // definiton.
   // Valid alignments are powers of two from 2^0 to 2^MaxAlignmentExponent =
-  // 2^30. We store them as Log2(Alignment), so we need 5 bits to encode the 31
+  // 2^32. We store them as Log2(Alignment), so we need 6 bits to encode the 33
   // possible values.
   template <unsigned Offset>
   using AlignmentBitfieldElementT =
-      typename Bitfield::Element<unsigned, Offset, 5,
+      typename Bitfield::Element<unsigned, Offset, 6,
                                  Value::MaxAlignmentExponent>;
 
   template <unsigned Offset>
@@ -386,6 +384,10 @@ public:
 
   /// Determine whether the no signed wrap flag is set.
   bool hasNoSignedWrap() const;
+
+  /// Return true if this operator has flags which may cause this instruction
+  /// to evaluate to poison despite having non-poison inputs.
+  bool hasPoisonGeneratingFlags() const;
 
   /// Drops flags that may cause this instruction to evaluate to poison despite
   /// having non-poison inputs.

@@ -1,7 +1,5 @@
 ; When EXPENSIVE_CHECKS are enabled, the machine verifier appears between each
 ; pass. Ignore it with 'grep -v'.
-; fixme: the following line is added to cleanup bots, will be removed in weeks.
-; RUN: rm -f %S/llc-pipeline.s
 ; RUN: llc -O0 -mtriple=amdgcn--amdhsa -disable-verify -debug-pass=Structure < %s 2>&1 \
 ; RUN:   | grep -v 'Verify generated machine code' | FileCheck -match-full-lines -strict-whitespace -check-prefix=GCN-O0 %s
 ; RUN: llc -O1 -mtriple=amdgcn--amdhsa -disable-verify -debug-pass=Structure < %s 2>&1 \
@@ -162,6 +160,7 @@
 ; GCN-O1-NEXT:Create Garbage Collector Module Metadata
 ; GCN-O1-NEXT:Machine Branch Probability Analysis
 ; GCN-O1-NEXT:Register Usage Information Storage
+; GCN-O1-NEXT:Default Regalloc Eviction Advisor
 ; GCN-O1-NEXT:  ModulePass Manager
 ; GCN-O1-NEXT:    Pre-ISel Intrinsic Lowering
 ; GCN-O1-NEXT:    AMDGPU Printf lowering
@@ -316,7 +315,6 @@
 ; GCN-O1-NEXT:        Eliminate PHI nodes for register allocation
 ; GCN-O1-NEXT:        SI Lower control flow pseudo instructions
 ; GCN-O1-NEXT:        Two-Address instruction pass
-; GCN-O1-NEXT:        MachineDominator Tree Construction
 ; GCN-O1-NEXT:        Slot index numbering
 ; GCN-O1-NEXT:        Live Interval Analysis
 ; GCN-O1-NEXT:        Machine Natural Loop Construction
@@ -368,6 +366,7 @@
 ; GCN-O1-NEXT:        Tail Duplication
 ; GCN-O1-NEXT:        Machine Copy Propagation Pass
 ; GCN-O1-NEXT:        Post-RA pseudo instruction expansion pass
+; GCN-O1-NEXT:        SI Shrink Instructions
 ; GCN-O1-NEXT:        SI post-RA bundler
 ; GCN-O1-NEXT:        MachineDominator Tree Construction
 ; GCN-O1-NEXT:        Machine Natural Loop Construction
@@ -380,7 +379,6 @@
 ; GCN-O1-NEXT:        SI Memory Legalizer
 ; GCN-O1-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-NEXT:        SI insert wait instructions
-; GCN-O1-NEXT:        SI Shrink Instructions
 ; GCN-O1-NEXT:        Insert required mode register values
 ; GCN-O1-NEXT:        SI Insert Hard Clauses
 ; GCN-O1-NEXT:        MachineDominator Tree Construction
@@ -414,6 +412,7 @@
 ; GCN-O1-OPTS-NEXT:Create Garbage Collector Module Metadata
 ; GCN-O1-OPTS-NEXT:Machine Branch Probability Analysis
 ; GCN-O1-OPTS-NEXT:Register Usage Information Storage
+; GCN-O1-OPTS-NEXT:Default Regalloc Eviction Advisor
 ; GCN-O1-OPTS-NEXT:  ModulePass Manager
 ; GCN-O1-OPTS-NEXT:    Pre-ISel Intrinsic Lowering
 ; GCN-O1-OPTS-NEXT:    AMDGPU Printf lowering
@@ -600,7 +599,6 @@
 ; GCN-O1-OPTS-NEXT:        Eliminate PHI nodes for register allocation
 ; GCN-O1-OPTS-NEXT:        SI Lower control flow pseudo instructions
 ; GCN-O1-OPTS-NEXT:        Two-Address instruction pass
-; GCN-O1-OPTS-NEXT:        MachineDominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        Slot index numbering
 ; GCN-O1-OPTS-NEXT:        Live Interval Analysis
 ; GCN-O1-OPTS-NEXT:        Machine Natural Loop Construction
@@ -653,6 +651,7 @@
 ; GCN-O1-OPTS-NEXT:        Tail Duplication
 ; GCN-O1-OPTS-NEXT:        Machine Copy Propagation Pass
 ; GCN-O1-OPTS-NEXT:        Post-RA pseudo instruction expansion pass
+; GCN-O1-OPTS-NEXT:        SI Shrink Instructions
 ; GCN-O1-OPTS-NEXT:        SI post-RA bundler
 ; GCN-O1-OPTS-NEXT:        MachineDominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        Machine Natural Loop Construction
@@ -665,7 +664,6 @@
 ; GCN-O1-OPTS-NEXT:        SI Memory Legalizer
 ; GCN-O1-OPTS-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O1-OPTS-NEXT:        SI insert wait instructions
-; GCN-O1-OPTS-NEXT:        SI Shrink Instructions
 ; GCN-O1-OPTS-NEXT:        Insert required mode register values
 ; GCN-O1-OPTS-NEXT:        SI Insert Hard Clauses
 ; GCN-O1-OPTS-NEXT:        MachineDominator Tree Construction
@@ -699,6 +697,7 @@
 ; GCN-O2-NEXT:Create Garbage Collector Module Metadata
 ; GCN-O2-NEXT:Machine Branch Probability Analysis
 ; GCN-O2-NEXT:Register Usage Information Storage
+; GCN-O2-NEXT:Default Regalloc Eviction Advisor
 ; GCN-O2-NEXT:  ModulePass Manager
 ; GCN-O2-NEXT:    Pre-ISel Intrinsic Lowering
 ; GCN-O2-NEXT:    AMDGPU Printf lowering
@@ -886,7 +885,6 @@
 ; GCN-O2-NEXT:        Eliminate PHI nodes for register allocation
 ; GCN-O2-NEXT:        SI Lower control flow pseudo instructions
 ; GCN-O2-NEXT:        Two-Address instruction pass
-; GCN-O2-NEXT:        MachineDominator Tree Construction
 ; GCN-O2-NEXT:        Slot index numbering
 ; GCN-O2-NEXT:        Live Interval Analysis
 ; GCN-O2-NEXT:        Machine Natural Loop Construction
@@ -940,6 +938,7 @@
 ; GCN-O2-NEXT:        Tail Duplication
 ; GCN-O2-NEXT:        Machine Copy Propagation Pass
 ; GCN-O2-NEXT:        Post-RA pseudo instruction expansion pass
+; GCN-O2-NEXT:        SI Shrink Instructions
 ; GCN-O2-NEXT:        SI post-RA bundler
 ; GCN-O2-NEXT:        MachineDominator Tree Construction
 ; GCN-O2-NEXT:        Machine Natural Loop Construction
@@ -952,7 +951,6 @@
 ; GCN-O2-NEXT:        SI Memory Legalizer
 ; GCN-O2-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O2-NEXT:        SI insert wait instructions
-; GCN-O2-NEXT:        SI Shrink Instructions
 ; GCN-O2-NEXT:        Insert required mode register values
 ; GCN-O2-NEXT:        SI Insert Hard Clauses
 ; GCN-O2-NEXT:        MachineDominator Tree Construction
@@ -986,6 +984,7 @@
 ; GCN-O3-NEXT:Create Garbage Collector Module Metadata
 ; GCN-O3-NEXT:Machine Branch Probability Analysis
 ; GCN-O3-NEXT:Register Usage Information Storage
+; GCN-O3-NEXT:Default Regalloc Eviction Advisor
 ; GCN-O3-NEXT:  ModulePass Manager
 ; GCN-O3-NEXT:    Pre-ISel Intrinsic Lowering
 ; GCN-O3-NEXT:    AMDGPU Printf lowering
@@ -1186,7 +1185,6 @@
 ; GCN-O3-NEXT:        Eliminate PHI nodes for register allocation
 ; GCN-O3-NEXT:        SI Lower control flow pseudo instructions
 ; GCN-O3-NEXT:        Two-Address instruction pass
-; GCN-O3-NEXT:        MachineDominator Tree Construction
 ; GCN-O3-NEXT:        Slot index numbering
 ; GCN-O3-NEXT:        Live Interval Analysis
 ; GCN-O3-NEXT:        Machine Natural Loop Construction
@@ -1240,6 +1238,7 @@
 ; GCN-O3-NEXT:        Tail Duplication
 ; GCN-O3-NEXT:        Machine Copy Propagation Pass
 ; GCN-O3-NEXT:        Post-RA pseudo instruction expansion pass
+; GCN-O3-NEXT:        SI Shrink Instructions
 ; GCN-O3-NEXT:        SI post-RA bundler
 ; GCN-O3-NEXT:        MachineDominator Tree Construction
 ; GCN-O3-NEXT:        Machine Natural Loop Construction
@@ -1252,7 +1251,6 @@
 ; GCN-O3-NEXT:        SI Memory Legalizer
 ; GCN-O3-NEXT:        MachinePostDominator Tree Construction
 ; GCN-O3-NEXT:        SI insert wait instructions
-; GCN-O3-NEXT:        SI Shrink Instructions
 ; GCN-O3-NEXT:        Insert required mode register values
 ; GCN-O3-NEXT:        SI Insert Hard Clauses
 ; GCN-O3-NEXT:        MachineDominator Tree Construction

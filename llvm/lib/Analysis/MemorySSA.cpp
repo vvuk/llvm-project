@@ -309,6 +309,7 @@ instructionClobbersQuery(const MemoryDef *MD, const MemoryLocation &UseLoc,
     case Intrinsic::invariant_end:
     case Intrinsic::assume:
     case Intrinsic::experimental_noalias_scope_decl:
+    case Intrinsic::pseudoprobe:
       return {false, AliasResult(AliasResult::NoAlias)};
     case Intrinsic::dbg_addr:
     case Intrinsic::dbg_declare:
@@ -1264,8 +1265,8 @@ void MemorySSA::markUnreachableAsLiveOnEntry(BasicBlock *BB) {
 }
 
 MemorySSA::MemorySSA(Function &Func, AliasAnalysis *AA, DominatorTree *DT)
-    : AA(nullptr), DT(DT), F(Func), LiveOnEntryDef(nullptr), Walker(nullptr),
-      SkipWalker(nullptr), NextID(0) {
+    : DT(DT), F(Func), LiveOnEntryDef(nullptr), Walker(nullptr),
+      SkipWalker(nullptr) {
   // Build MemorySSA using a batch alias analysis. This reuses the internal
   // state that AA collects during an alias()/getModRefInfo() call. This is
   // safe because there are no CFG changes while building MemorySSA and can
@@ -1782,6 +1783,7 @@ MemoryUseOrDef *MemorySSA::createNewAccess(Instruction *I,
       break;
     case Intrinsic::assume:
     case Intrinsic::experimental_noalias_scope_decl:
+    case Intrinsic::pseudoprobe:
       return nullptr;
     }
   }

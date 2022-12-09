@@ -28,15 +28,14 @@
 #include "test_macros.h"
 #include "format_tests.h"
 
-auto test = []<class CharT, class... Args>(std::basic_string<CharT> expected,
-                                           std::basic_string<CharT> fmt,
+auto test = []<class CharT, class... Args>(std::basic_string<CharT> expected, std::basic_string<CharT> fmt,
                                            const Args&... args) {
   size_t size = std::formatted_size(std::locale(), fmt, args...);
   assert(size == expected.size());
 };
 
-auto test_exception = []<class CharT, class... Args>(
-    std::string_view what, std::basic_string<CharT> fmt, const Args&... args) {
+auto test_exception =
+    []<class CharT, class... Args>(std::string_view what, std::basic_string<CharT> fmt, const Args&... args) {
 #ifndef TEST_HAS_NO_EXCEPTIONS
   try {
     std::formatted_size(std::locale(), fmt, args...);
@@ -54,10 +53,12 @@ auto test_exception = []<class CharT, class... Args>(
 };
 
 int main(int, char**) {
-  format_tests_char_to_wchar_t(test);
-
   format_tests<char>(test, test_exception);
+
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
+  format_tests_char_to_wchar_t(test);
   format_tests<wchar_t>(test, test_exception);
+#endif
 
   return 0;
 }

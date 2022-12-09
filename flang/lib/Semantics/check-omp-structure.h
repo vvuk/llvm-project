@@ -211,6 +211,8 @@ private:
   bool IsDataRefTypeParamInquiry(const parser::DataRef *dataRef);
   void CheckIsVarPartOfAnotherVar(
       const parser::CharBlock &source, const parser::OmpObjectList &objList);
+  void CheckThreadprivateOrDeclareTargetVar(
+      const parser::OmpObjectList &objList);
   void CheckIntentInPointer(
       const parser::OmpObjectList &, const llvm::omp::Clause);
   void GetSymbolsInObjectList(const parser::OmpObjectList &, SymbolSourceMap &);
@@ -227,6 +229,12 @@ private:
   void CheckLoopItrVariableIsInt(const parser::OpenMPLoopConstruct &x);
   void CheckDoWhile(const parser::OpenMPLoopConstruct &x);
   void CheckCycleConstraints(const parser::OpenMPLoopConstruct &x);
+  template <typename T, typename D> bool IsOperatorValid(const T &, const D &);
+  void CheckAtomicMemoryOrderClause(
+      const parser::OmpAtomicClauseList &, const parser::OmpAtomicClauseList &);
+  void CheckAtomicMemoryOrderClause(const parser::OmpAtomicClauseList &);
+  void CheckAtomicUpdateAssignmentStmt(const parser::AssignmentStmt &);
+  void CheckAtomicConstructStructure(const parser::OpenMPAtomicConstruct &);
   void CheckDistLinear(const parser::OpenMPLoopConstruct &x);
   void CheckSIMDNest(const parser::OpenMPConstruct &x);
   void CheckTargetNest(const parser::OpenMPConstruct &x);

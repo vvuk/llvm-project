@@ -15,7 +15,6 @@
 
 #include "llvm/Support/SpecialCaseList.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Regex.h"
 #include "llvm/Support/VirtualFileSystem.h"
@@ -93,7 +92,7 @@ SpecialCaseList::createOrDie(const std::vector<std::string> &Paths,
   std::string Error;
   if (auto SCL = create(Paths, FS, Error))
     return SCL;
-  report_fatal_error(Error);
+  report_fatal_error(Twine(Error));
 }
 
 bool SpecialCaseList::createInternal(const std::vector<std::string> &Paths,

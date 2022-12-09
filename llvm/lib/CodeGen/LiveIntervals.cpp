@@ -827,6 +827,8 @@ CancelKill:
 
 MachineBasicBlock*
 LiveIntervals::intervalIsInOneMBB(const LiveInterval &LI) const {
+  assert(!LI.empty() && "LiveInterval is empty.");
+
   // A local live range must be fully contained inside the block, meaning it is
   // defined and killed at instructions, not at block boundaries. It is not
   // live in or out of any block.
@@ -1592,10 +1594,7 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
 
     // FIXME: This doesn't currently handle early-clobber or multiple removed
     // defs inside of the region to repair.
-    for (MachineInstr::mop_iterator OI = MI.operands_begin(),
-                                    OE = MI.operands_end();
-         OI != OE; ++OI) {
-      const MachineOperand &MO = *OI;
+    for (const MachineOperand &MO : MI.operands()) {
       if (!MO.isReg() || MO.getReg() != Reg)
         continue;
 
@@ -1607,17 +1606,9 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
       if (MO.isDef()) {
         if (!isStartValid) {
           if (LII->end.isDead()) {
-            SlotIndex prevStart;
+            LII = LR.removeSegment(LII, true);
             if (LII != LR.begin())
-              prevStart = std::prev(LII)->start;
-
-            // FIXME: This could be more efficient if there was a
-            // removeSegment method that returned an iterator.
-            LR.removeSegment(*LII, true);
-            if (prevStart.isValid())
-              LII = LR.find(prevStart);
-            else
-              LII = LR.begin();
+              --LII;
           } else {
             LII->start = instrIdx.getRegSlot();
             LII->valno->def = instrIdx.getRegSlot();
@@ -1655,6 +1646,10 @@ void LiveIntervals::repairOldRegInRange(const MachineBasicBlock::iterator Begin,
       }
     }
   }
+
+  bool isStartValid = getInstructionFromIndex(LII->start);
+  if (!isStartValid && LII->end.isDead())
+    LR.removeSegment(*LII, true);
 }
 
 void
@@ -1684,15 +1679,13 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
     MachineInstr &MI = *I;
     if (MI.isDebugOrPseudoInstr())
       continue;
-    for (MachineInstr::const_mop_iterator MOI = MI.operands_begin(),
-                                          MOE = MI.operands_end();
-         MOI != MOE; ++MOI) {
-      if (MOI->isReg() && MOI->getReg().isVirtual()) {
-        Register Reg = MOI->getReg();
+    for (const MachineOperand &MO : MI.operands()) {
+      if (MO.isReg() && MO.getReg().isVirtual()) {
+        Register Reg = MO.getReg();
         // If the new instructions refer to subregs but the old instructions did
         // not, throw away any old live interval so it will be recomputed with
         // subranges.
-        if (MOI->getSubReg() && hasInterval(Reg) &&
+        if (MO.getSubReg() && hasInterval(Reg) &&
             !getInterval(Reg).hasSubRanges() &&
             MRI->shouldTrackSubRegLiveness(Reg))
           removeInterval(Reg);
@@ -1716,6 +1709,7 @@ LiveIntervals::repairIntervalsInRange(MachineBasicBlock *MBB,
 
     for (LiveInterval::SubRange &S : LI.subranges())
       repairOldRegInRange(Begin, End, EndIdx, S, Reg, S.LaneMask);
+    LI.removeEmptySubRanges();
 
     repairOldRegInRange(Begin, End, EndIdx, LI, Reg);
   }

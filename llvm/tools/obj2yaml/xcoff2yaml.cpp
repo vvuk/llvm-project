@@ -132,21 +132,21 @@ Error XCOFFDumper::dumpSymbols() {
     Sym.Type = SymbolEntRef.getSymbolType();
     Sym.StorageClass = SymbolEntRef.getStorageClass();
     Sym.NumberOfAuxEntries = SymbolEntRef.getNumberOfAuxEntries();
-    Symbols.push_back(Sym);
+
+    Symbols.push_back(std::move(Sym));
   }
 
   return Error::success();
 }
 
-std::error_code xcoff2yaml(raw_ostream &Out,
-                           const object::XCOFFObjectFile &Obj) {
+Error xcoff2yaml(raw_ostream &Out, const object::XCOFFObjectFile &Obj) {
   XCOFFDumper Dumper(Obj);
 
   if (Error E = Dumper.dump())
-    return errorToErrorCode(std::move(E));
+    return E;
 
   yaml::Output Yout(Out);
   Yout << Dumper.getYAMLObj();
 
-  return std::error_code();
+  return Error::success();
 }

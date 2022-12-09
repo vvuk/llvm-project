@@ -200,6 +200,14 @@ namespace llvm {
     /// and 64-bit AIX.
     BCTRL_LOAD_TOC,
 
+    /// The variants that implicitly define rounding mode for calls with
+    /// strictfp semantics.
+    CALL_RM,
+    CALL_NOP_RM,
+    CALL_NOTOC_RM,
+    BCTRL_RM,
+    BCTRL_LOAD_TOC_RM,
+
     /// Return with a flag operand, matched by 'blr'
     RET_FLAG,
 
@@ -559,6 +567,14 @@ namespace llvm {
     /// instructions such as LXVDSX, LXVWSX.
     LD_SPLAT,
 
+    /// VSRC, CHAIN = ZEXT_LD_SPLAT, CHAIN, Ptr - a splatting load memory
+    /// that zero-extends.
+    ZEXT_LD_SPLAT,
+
+    /// VSRC, CHAIN = SEXT_LD_SPLAT, CHAIN, Ptr - a splatting load memory
+    /// that sign-extends.
+    SEXT_LD_SPLAT,
+
     /// CHAIN = STXVD2X CHAIN, VSRC, Ptr - Occurs only for little endian.
     /// Maps directly to an stxvd2x instruction that will be preceded by
     /// an xxswapd.
@@ -749,8 +765,19 @@ namespace llvm {
     /// then the VPERM for the shuffle. All in all a very slow sequence.
     TargetLoweringBase::LegalizeTypeAction getPreferredVectorAction(MVT VT)
       const override {
-      if (!VT.isScalableVector() && VT.getVectorNumElements() != 1 &&
-          VT.getScalarSizeInBits() % 8 == 0)
+      // Default handling for scalable and single-element vectors.
+      if (VT.isScalableVector() || VT.getVectorNumElements() == 1)
+        return TargetLoweringBase::getPreferredVectorAction(VT);
+
+      // Split and promote vNi1 vectors so we don't produce v256i1/v512i1
+      // types as those are only for MMA instructions.
+      if (VT.getScalarSizeInBits() == 1 && VT.getSizeInBits() > 16)
+        return TypeSplitVector;
+      if (VT.getScalarSizeInBits() == 1)
+        return TypePromoteInteger;
+
+      // Widen vectors that have reasonably sized elements.
+      if (VT.getScalarSizeInBits() % 8 == 0)
         return TypeWidenVector;
       return TargetLoweringBase::getPreferredVectorAction(VT);
     }
@@ -943,7 +970,7 @@ namespace llvm {
     /// getByValTypeAlignment - Return the desired alignment for ByVal aggregate
     /// function arguments in the caller parameter area.  This is the actual
     /// alignment, not its logarithm.
-    unsigned getByValTypeAlignment(Type *Ty,
+    uint64_t getByValTypeAlignment(Type *Ty,
                                    const DataLayout &DL) const override;
 
     /// LowerAsmOperandForConstraint - Lower the specified operand into the Ops
@@ -1123,6 +1150,10 @@ namespace llvm {
     PPC::AddrMode SelectForceXFormMode(SDValue N, SDValue &Disp, SDValue &Base,
                                        SelectionDAG &DAG) const;
 
+    bool
+    splitValueIntoRegisterParts(SelectionDAG &DAG, const SDLoc &DL, SDValue Val,
+                                SDValue *Parts, unsigned NumParts, MVT PartVT,
+                                Optional<CallingConv::ID> CC) const override;
     /// Structure that collects some common arguments that get passed around
     /// between the functions for call lowering.
     struct CallFlags {
@@ -1436,4 +1467,4 @@ namespace llvm {
 
 } // end namespace llvm
 
-#endif // LLVM_TARGET_POWERPC_PPC32ISELLOWERING_H
+#endif // LLVM_LIB_TARGET_POWERPC_PPCISELLOWERING_H

@@ -10,8 +10,8 @@
 #
 ##===----------------------------------------------------------------------===##
 
-set(LIBOMPTARGET_BUILD_AMDGCN_BCLIB TRUE CACHE BOOL
-  "Can be set to false to disable building this library.")
+set(LIBOMPTARGET_BUILD_AMDGCN_BCLIB FALSE CACHE BOOL
+  "Can be set to true to enable building this library.")
 
 if (NOT LIBOMPTARGET_BUILD_AMDGCN_BCLIB)
   libomptarget_say("Not building AMDGCN device RTL: Disabled by LIBOMPTARGET_BUILD_AMDGCN_BCLIB")
@@ -39,10 +39,14 @@ endif()
 if (LLVM_DIR)
   # Builds that use pre-installed LLVM have LLVM_DIR set.
   find_program(CLANG_TOOL clang PATHS ${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH)
-  find_program(LINK_TOOL llvm-link PATHS ${LLVM_TOOLS_BINARY_DIR}
-    NO_DEFAULT_PATH)
+  find_program(LINK_TOOL llvm-link PATHS ${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH)
   find_program(OPT_TOOL opt PATHS ${LLVM_TOOLS_BINARY_DIR} NO_DEFAULT_PATH)
-  libomptarget_say("Building AMDGCN device RTL. Using clang: ${CLANG_TOOL}")
+  if ((NOT CLANG_TOOL) OR (NOT LINK_TOOL) OR (NOT OPT_TOOL))
+    libomptarget_say("Not building AMDGCN device RTL. Missing clang: ${CLANG_TOOL}, llvm-link: ${LINK_TOOL} or opt: ${OPT_TOOL}")
+    return()
+  else()
+    libomptarget_say("Building AMDGCN device RTL. Using clang: ${CLANG_TOOL}, llvm-link: ${LINK_TOOL} and opt: ${OPT_TOOL}")
+  endif()
 elseif (LLVM_TOOL_CLANG_BUILD AND NOT CMAKE_CROSSCOMPILING AND NOT OPENMP_STANDALONE_BUILD)
   # LLVM in-tree builds may use CMake target names to discover the tools.
   set(CLANG_TOOL $<TARGET_FILE:clang>)
@@ -92,7 +96,6 @@ set(h_files
   ${CMAKE_CURRENT_SOURCE_DIR}/src/amdgcn_interface.h
   ${CMAKE_CURRENT_SOURCE_DIR}/src/target_impl.h
   ${devicertl_base_directory}/common/debug.h
-  ${devicertl_base_directory}/common/device_environment.h
   ${devicertl_base_directory}/common/omptarget.h
   ${devicertl_base_directory}/common/omptargeti.h
   ${devicertl_base_directory}/common/state-queue.h
@@ -129,7 +132,7 @@ macro(add_cuda_bc_library)
     -fopenmp -fopenmp-cuda-mode -Xclang -fopenmp-is-device
     -D__AMDGCN__
     -Xclang -target-cpu -Xclang ${mcpu}
-    -fvisibility=default
+    -fvisibility=hidden
     -Wno-unused-value
     -nogpulib
     -O${optimization_level}
@@ -137,6 +140,7 @@ macro(add_cuda_bc_library)
     -I${CMAKE_CURRENT_SOURCE_DIR}/src
     -I${devicertl_base_directory}/common/include
     -I${devicertl_base_directory}
+    -I${devicertl_base_directory}/../include
     ${LIBOMPTARGET_LLVM_INCLUDE_DIRS_AMDGCN})
 
   set(bc1_files)

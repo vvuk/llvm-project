@@ -15,8 +15,10 @@
 
 #include "X86RecognizableInstr.h"
 #include "X86DisassemblerShared.h"
+#include "X86DisassemblerTables.h"
 #include "X86ModRMFilters.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/TableGen/Record.h"
 #include <string>
 
 using namespace llvm;
@@ -109,12 +111,12 @@ RecognizableInstr::RecognizableInstr(DisassemblerTables &tables,
   // FIXME: Is there some better way to check for In64BitMode?
   std::vector<Record*> Predicates = Rec->getValueAsListOfDefs("Predicates");
   for (unsigned i = 0, e = Predicates.size(); i != e; ++i) {
-    if (Predicates[i]->getName().find("Not64Bit") != Name.npos ||
-        Predicates[i]->getName().find("In32Bit") != Name.npos) {
+    if (Predicates[i]->getName().contains("Not64Bit") ||
+        Predicates[i]->getName().contains("In32Bit")) {
       Is32Bit = true;
       break;
     }
-    if (Predicates[i]->getName().find("In64Bit") != Name.npos) {
+    if (Predicates[i]->getName().contains("In64Bit")) {
       Is64Bit = true;
       break;
     }

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_IR_TYPE_SUPPORT_H
-#define MLIR_IR_TYPE_SUPPORT_H
+#ifndef MLIR_IR_TYPESUPPORT_H
+#define MLIR_IR_TYPESUPPORT_H
 
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/StorageUniquerSupport.h"
@@ -115,7 +115,7 @@ private:
 
 namespace detail {
 struct TypeUniquer;
-} // end namespace detail
+} // namespace detail
 
 /// Base storage class appearing in a Type.
 class TypeStorage : public StorageUniquer::BaseStorage {
@@ -131,7 +131,7 @@ public:
 
 protected:
   /// This constructor is used by derived classes as part of the TypeUniquer.
-  TypeStorage() : abstractType(nullptr) {}
+  TypeStorage() {}
 
 private:
   /// Set the abstract type for this storage instance. This is used by the
@@ -141,7 +141,7 @@ private:
   }
 
   /// The abstract description for this type.
-  AbstractType *abstractType;
+  AbstractType *abstractType{nullptr};
 };
 
 /// Default storage type for types that require no additional initialization or
@@ -170,10 +170,11 @@ struct TypeUniquer {
   get(MLIRContext *ctx, Args &&...args) {
 #ifndef NDEBUG
     if (!ctx->getTypeUniquer().isParametricStorageInitialized(T::getTypeID()))
-      llvm::report_fatal_error(llvm::Twine("can't create type '") +
-                               llvm::getTypeName<T>() +
-                               "' because storage uniquer isn't initialized: "
-                               "the dialect was likely not loaded.");
+      llvm::report_fatal_error(
+          llvm::Twine("can't create type '") + llvm::getTypeName<T>() +
+          "' because storage uniquer isn't initialized: the dialect was likely "
+          "not loaded, or the type wasn't added with addTypes<...>() "
+          "in the Dialect::initialize() method.");
 #endif
     return ctx->getTypeUniquer().get<typename T::ImplType>(
         [&](TypeStorage *storage) {
@@ -188,10 +189,11 @@ struct TypeUniquer {
   get(MLIRContext *ctx) {
 #ifndef NDEBUG
     if (!ctx->getTypeUniquer().isSingletonStorageInitialized(T::getTypeID()))
-      llvm::report_fatal_error(llvm::Twine("can't create type '") +
-                               llvm::getTypeName<T>() +
-                               "' because storage uniquer isn't initialized: "
-                               "the dialect was likely not loaded.");
+      llvm::report_fatal_error(
+          llvm::Twine("can't create type '") + llvm::getTypeName<T>() +
+          "' because storage uniquer isn't initialized: the dialect was likely "
+          "not loaded, or the type wasn't added with addTypes<...>() "
+          "in the Dialect::initialize() method.");
 #endif
     return ctx->getTypeUniquer().get<typename T::ImplType>(T::getTypeID());
   }
@@ -227,6 +229,6 @@ struct TypeUniquer {
 };
 } // namespace detail
 
-} // end namespace mlir
+} // namespace mlir
 
 #endif

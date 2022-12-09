@@ -47,7 +47,8 @@ enum {
   CCMaskFirst            = (1 << 18),
   CCMaskLast             = (1 << 19),
   IsLogical              = (1 << 20),
-  CCIfNoSignedWrap       = (1 << 21)
+  CCIfNoSignedWrap       = (1 << 21),
+  MemMemOp               = (1 << 22)
 };
 
 static inline unsigned getAccessSize(unsigned int Flags) {
@@ -271,8 +272,8 @@ public:
                             Register DestReg, int FrameIdx,
                             const TargetRegisterClass *RC,
                             const TargetRegisterInfo *TRI) const override;
-  MachineInstr *convertToThreeAddress(MachineInstr &MI,
-                                      LiveVariables *LV) const override;
+  MachineInstr *convertToThreeAddress(MachineInstr &MI, LiveVariables *LV,
+                                      LiveIntervals *LIS) const override;
   MachineInstr *
   foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
                         ArrayRef<unsigned> Ops,
@@ -310,6 +311,9 @@ public:
   // instruction (which might be Opcode itself) or 0 if no such instruction
   // exists.
   unsigned getOpcodeForOffset(unsigned Opcode, int64_t Offset) const;
+
+  // Return true if Opcode has a mapping in 12 <-> 20 bit displacements.
+  bool hasDisplacementPairInsn(unsigned Opcode) const;
 
   // If Opcode is a load instruction that has a LOAD AND TEST form,
   // return the opcode for the testing form, otherwise return 0.

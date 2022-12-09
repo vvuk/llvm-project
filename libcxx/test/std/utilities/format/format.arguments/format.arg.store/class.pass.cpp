@@ -8,6 +8,8 @@
 // UNSUPPORTED: c++03, c++11, c++14, c++17
 // UNSUPPORTED: libcpp-no-concepts
 // UNSUPPORTED: libcpp-has-no-incomplete-format
+// TODO FMT Evaluate gcc-11 status
+// UNSUPPORTED: gcc-11
 
 // <format>
 
@@ -22,6 +24,7 @@
 
 #include <format>
 #include <cassert>
+#include <cstddef>
 #include <type_traits>
 
 #include "test_macros.h"
@@ -30,7 +33,7 @@ template <class CharT>
 void test() {
   using Context = std::basic_format_context<CharT*, CharT>;
   {
-    auto store = std::make_format_args<Context>();
+    [[maybe_unused]] auto store = std::make_format_args<Context>();
     LIBCPP_STATIC_ASSERT(
         std::is_same_v<decltype(store), std::__format_arg_store<Context>>);
     LIBCPP_STATIC_ASSERT(
@@ -39,7 +42,7 @@ void test() {
     LIBCPP_ASSERT(store.__args.size() == 0);
   }
   {
-    auto store = std::make_format_args<Context>(1);
+    [[maybe_unused]] auto store = std::make_format_args<Context>(1);
     LIBCPP_STATIC_ASSERT(
         std::is_same_v<decltype(store), std::__format_arg_store<Context, int>>);
     LIBCPP_STATIC_ASSERT(
@@ -48,7 +51,7 @@ void test() {
     LIBCPP_ASSERT(store.__args.size() == 1);
   }
   {
-    auto store = std::make_format_args<Context>(1, 'c');
+    [[maybe_unused]] auto store = std::make_format_args<Context>(1, 'c');
     LIBCPP_STATIC_ASSERT(
         std::is_same_v<decltype(store),
                        std::__format_arg_store<Context, int, char>>);
@@ -58,10 +61,10 @@ void test() {
     LIBCPP_ASSERT(store.__args.size() == 2);
   }
   {
-    auto store = std::make_format_args<Context>(1, 'c', nullptr);
+    [[maybe_unused]] auto store = std::make_format_args<Context>(1, 'c', nullptr);
     LIBCPP_STATIC_ASSERT(
         std::is_same_v<decltype(store),
-                       std::__format_arg_store<Context, int, char, nullptr_t>>);
+                       std::__format_arg_store<Context, int, char, std::nullptr_t>>);
     LIBCPP_STATIC_ASSERT(
         std::is_same_v<decltype(store.__args),
                        std::array<std::basic_format_arg<Context>, 3>>);
@@ -71,7 +74,9 @@ void test() {
 
 void test() {
   test<char>();
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
   test<wchar_t>();
+#endif
 }
 
 int main(int, char**) {

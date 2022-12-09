@@ -60,7 +60,7 @@ bool WebAssemblyTargetInfo::hasFeature(StringRef Feature) const {
 }
 
 bool WebAssemblyTargetInfo::isValidCPUName(StringRef Name) const {
-  return llvm::find(ValidCPUNames, Name) != std::end(ValidCPUNames);
+  return llvm::is_contained(ValidCPUNames, Name);
 }
 
 void WebAssemblyTargetInfo::fillValidCPUList(
@@ -260,6 +260,7 @@ void WebAssemblyTargetInfo::adjust(DiagnosticsEngine &Diags,
   if (!HasAtomics) {
     Opts.POSIXThreads = false;
     Opts.setThreadModel(LangOptions::ThreadModelKind::Single);
+    Opts.ThreadsafeStatics = false;
   }
 }
 

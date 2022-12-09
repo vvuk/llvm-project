@@ -1,5 +1,5 @@
 // -*- C++ -*-
-//===---------------------------- test_macros.h ---------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -77,7 +77,7 @@
 #  define TEST_COMPILER_APPLE_CLANG
 # endif
 #elif defined(_MSC_VER)
-# define TEST_COMPILER_C1XX
+# define TEST_COMPILER_MSVC
 #elif defined(__GNUC__)
 # define TEST_COMPILER_GCC
 #endif
@@ -143,6 +143,14 @@
 # define TEST_THROW_SPEC(...)
 #else
 # define TEST_THROW_SPEC(...) throw(__VA_ARGS__)
+#endif
+
+#if defined(__cpp_lib_is_constant_evaluated) && __cpp_lib_is_constant_evaluated >= 201811L
+# define TEST_IS_CONSTANT_EVALUATED std::is_constant_evaluated()
+#elif TEST_HAS_BUILTIN(__builtin_is_constant_evaluated)
+# define TEST_IS_CONSTANT_EVALUATED __builtin_is_constant_evaluated()
+#else
+# define TEST_IS_CONSTANT_EVALUATED false
 #endif
 
 #if TEST_STD_VER >= 14
@@ -228,15 +236,11 @@
 #define LIBCPP_ASSERT_NOT_NOEXCEPT(...) ASSERT_NOT_NOEXCEPT(__VA_ARGS__)
 #define LIBCPP_ONLY(...) __VA_ARGS__
 #else
-#define LIBCPP_ASSERT(...) ((void)0)
-#define LIBCPP_STATIC_ASSERT(...) ((void)0)
-#define LIBCPP_ASSERT_NOEXCEPT(...) ((void)0)
-#define LIBCPP_ASSERT_NOT_NOEXCEPT(...) ((void)0)
-#define LIBCPP_ONLY(...) ((void)0)
-#endif
-
-#if !defined(_LIBCPP_HAS_NO_RANGES)
-#define TEST_SUPPORTS_RANGES
+#define LIBCPP_ASSERT(...) static_assert(true, "")
+#define LIBCPP_STATIC_ASSERT(...) static_assert(true, "")
+#define LIBCPP_ASSERT_NOEXCEPT(...) static_assert(true, "")
+#define LIBCPP_ASSERT_NOT_NOEXCEPT(...) static_assert(true, "")
+#define LIBCPP_ONLY(...) static_assert(true, "")
 #endif
 
 #define TEST_IGNORE_NODISCARD (void)
@@ -306,7 +310,7 @@ inline void DoNotOptimize(Tp const& value) {
 #endif
 
 #if (defined(_WIN32) && !defined(_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS)) ||   \
-    defined(__MVS__)
+    defined(__MVS__) || defined(_AIX)
 // Macros for waiving cases when we can't count allocations done within
 // the library implementation.
 //
@@ -316,6 +320,7 @@ inline void DoNotOptimize(Tp const& value) {
 // calls within the library.
 //
 // The same goes on IBM zOS.
+// The same goes on AIX.
 #define ASSERT_WITH_LIBRARY_INTERNAL_ALLOCATIONS(...) ((void)(__VA_ARGS__))
 #define TEST_SUPPORTS_LIBRARY_INTERNAL_ALLOCATIONS 0
 #else
@@ -346,6 +351,21 @@ inline void DoNotOptimize(Tp const& value) {
 
 #ifdef _WIN32
 #define TEST_WIN_NO_FILESYSTEM_PERMS_NONE
+#endif
+
+// Support for carving out parts of the test suite, like removing wide characters, etc.
+#if defined(_LIBCPP_HAS_NO_WIDE_CHARACTERS)
+#   define TEST_HAS_NO_WIDE_CHARACTERS
+#endif
+
+#if defined(_LIBCPP_HAS_NO_UNICODE)
+#   define TEST_HAS_NO_UNICODE
+#elif defined(_MSVC_EXECUTION_CHARACTER_SET) && _MSVC_EXECUTION_CHARACTER_SET != 65001
+#   define TEST_HAS_NO_UNICODE
+#endif
+
+#if defined(_LIBCPP_HAS_NO_INT128) || defined(TEST_COMPILER_MSVC)
+#   define TEST_HAS_NO_INT128
 #endif
 
 #if defined(__GNUC__)

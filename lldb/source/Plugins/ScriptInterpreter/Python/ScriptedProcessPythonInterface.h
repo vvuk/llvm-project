@@ -25,7 +25,8 @@ public:
   StructuredData::GenericSP
   CreatePluginObject(const llvm::StringRef class_name,
                      ExecutionContext &exe_ctx,
-                     StructuredData::DictionarySP args_sp) override;
+                     StructuredData::DictionarySP args_sp,
+                     StructuredData::Generic *script_obj = nullptr) override;
 
   Status Launch() override;
 
@@ -35,8 +36,11 @@ public:
 
   Status Stop() override;
 
-  lldb::MemoryRegionInfoSP
-  GetMemoryRegionContainingAddress(lldb::addr_t address) override;
+  llvm::Optional<MemoryRegionInfo>
+  GetMemoryRegionContainingAddress(lldb::addr_t address,
+                                   Status &error) override;
+
+  StructuredData::DictionarySP GetThreadsInfo() override;
 
   StructuredData::DictionarySP GetThreadWithID(lldb::tid_t tid) override;
 
@@ -50,6 +54,11 @@ public:
   lldb::pid_t GetProcessID() override;
 
   bool IsAlive() override;
+
+  llvm::Optional<std::string> GetScriptedThreadPluginName() override;
+
+private:
+  lldb::ScriptedThreadInterfaceSP CreateScriptedThreadInterface() override;
 };
 } // namespace lldb_private
 

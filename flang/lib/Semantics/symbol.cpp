@@ -348,7 +348,7 @@ bool Symbol::IsSubprogram() const {
 
 bool Symbol::IsFromModFile() const {
   return test(Flag::ModFile) ||
-      (!owner_->IsGlobal() && owner_->symbol()->IsFromModFile());
+      (!owner_->IsTopLevel() && owner_->symbol()->IsFromModFile());
 }
 
 ObjectEntityDetails::ObjectEntityDetails(EntityDetails &&d)
@@ -535,11 +535,15 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Symbol &symbol) {
   return os;
 }
 
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+void Symbol::dump() const { llvm::errs() << *this << '\n'; }
+#endif
+
 // Output a unique name for a scope by qualifying it with the names of
 // parent scopes. For scopes without corresponding symbols, use the kind
 // with an index (e.g. Block1, Block2, etc.).
 static void DumpUniqueName(llvm::raw_ostream &os, const Scope &scope) {
-  if (!scope.IsGlobal()) {
+  if (!scope.IsTopLevel()) {
     DumpUniqueName(os, scope.parent());
     os << '/';
     if (auto *scopeSymbol{scope.symbol()};

@@ -426,9 +426,7 @@ bool IndexedReference::isConsecutive(const Loop &L, unsigned CLS) const {
 
 const SCEV *IndexedReference::getLastCoefficient() const {
   const SCEV *LastSubscript = getLastSubscript();
-  assert(isa<SCEVAddRecExpr>(LastSubscript) &&
-         "Expecting a SCEV add recurrence expression");
-  const SCEVAddRecExpr *AR = dyn_cast<SCEVAddRecExpr>(LastSubscript);
+  auto *AR = cast<SCEVAddRecExpr>(LastSubscript);
   return AR->getStepRecurrence(SE);
 }
 
@@ -479,9 +477,8 @@ raw_ostream &llvm::operator<<(raw_ostream &OS, const CacheCost &CC) {
 
 CacheCost::CacheCost(const LoopVectorTy &Loops, const LoopInfo &LI,
                      ScalarEvolution &SE, TargetTransformInfo &TTI,
-                     AAResults &AA, DependenceInfo &DI,
-                     Optional<unsigned> TRT)
-    : Loops(Loops), TripCounts(), LoopCosts(),
+                     AAResults &AA, DependenceInfo &DI, Optional<unsigned> TRT)
+    : Loops(Loops),
       TRT((TRT == None) ? Optional<unsigned>(TemporalReuseThreshold) : TRT),
       LI(LI), SE(SE), TTI(TTI), AA(AA), DI(DI) {
   assert(!Loops.empty() && "Expecting a non-empty loop vector.");
@@ -523,10 +520,9 @@ void CacheCost::calculateCacheFootprint() {
 
   LLVM_DEBUG(dbgs() << "COMPUTING LOOP CACHE COSTS\n");
   for (const Loop *L : Loops) {
-    assert((std::find_if(LoopCosts.begin(), LoopCosts.end(),
-                         [L](const LoopCacheCostTy &LCC) {
-                           return LCC.first == L;
-                         }) == LoopCosts.end()) &&
+    assert(llvm::none_of(
+               LoopCosts,
+               [L](const LoopCacheCostTy &LCC) { return LCC.first == L; }) &&
            "Should not add duplicate element");
     CacheCostTy LoopCost = computeLoopCacheCost(*L, RefGroups);
     LoopCosts.push_back(std::make_pair(L, LoopCost));

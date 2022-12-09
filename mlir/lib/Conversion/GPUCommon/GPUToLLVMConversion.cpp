@@ -16,6 +16,7 @@
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 
 #include "../PassDetail.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/AsyncToLLVM/AsyncToLLVM.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -349,6 +350,7 @@ void GpuToLLVMConversionPass::runOnOperation() {
 
   target.addIllegalDialect<gpu::GPUDialect>();
 
+  mlir::arith::populateArithmeticToLLVMConversionPatterns(converter, patterns);
   populateVectorToLLVMConversionPatterns(converter, patterns);
   populateMemRefToLLVMConversionPatterns(converter, patterns);
   populateStdToLLVMConversionPatterns(converter, patterns);
@@ -518,7 +520,7 @@ LogicalResult ConvertAsyncYieldToGpuRuntimeCallPattern::matchAndRewrite(
 static bool isDefinedByCallTo(Value value, StringRef functionName) {
   assert(value.getType().isa<LLVM::LLVMPointerType>());
   if (auto defOp = value.getDefiningOp<LLVM::CallOp>())
-    return defOp.callee()->equals(functionName);
+    return defOp.getCallee()->equals(functionName);
   return false;
 }
 
@@ -632,7 +634,7 @@ Value ConvertLaunchFuncOpToGpuRuntimeCallPattern::generateParamsArray(
                                                  arraySize, /*alignment=*/0);
   auto zero = builder.create<LLVM::ConstantOp>(loc, llvmInt32Type,
                                                builder.getI32IntegerAttr(0));
-  for (auto en : llvm::enumerate(arguments)) {
+  for (const auto &en : llvm::enumerate(arguments)) {
     auto index = builder.create<LLVM::ConstantOp>(
         loc, llvmInt32Type, builder.getI32IntegerAttr(en.index()));
     auto fieldPtr = builder.create<LLVM::GEPOp>(
@@ -745,13 +747,15 @@ LogicalResult ConvertLaunchFuncOpToGpuRuntimeCallPattern::matchAndRewrite(
   // Create array of pointers to kernel arguments.
   auto kernelParams = generateParamsArray(launchOp, adaptor, rewriter);
   auto nullpointer = rewriter.create<LLVM::NullOp>(loc, llvmPointerPointerType);
-  launchKernelCallBuilder.create(loc, rewriter,
-                                 {function.getResult(0), adaptor.gridSizeX(),
-                                  adaptor.gridSizeY(), adaptor.gridSizeZ(),
-                                  adaptor.blockSizeX(), adaptor.blockSizeY(),
-                                  adaptor.blockSizeZ(),
-                                  /*sharedMemBytes=*/zero, stream, kernelParams,
-                                  /*extra=*/nullpointer});
+  Value dynamicSharedMemorySize = launchOp.dynamicSharedMemorySize()
+                                      ? launchOp.dynamicSharedMemorySize()
+                                      : zero;
+  launchKernelCallBuilder.create(
+      loc, rewriter,
+      {function.getResult(0), adaptor.gridSizeX(), adaptor.gridSizeY(),
+       adaptor.gridSizeZ(), adaptor.blockSizeX(), adaptor.blockSizeY(),
+       adaptor.blockSizeZ(), dynamicSharedMemorySize, stream, kernelParams,
+       /*extra=*/nullpointer});
 
   if (launchOp.asyncToken()) {
     // Async launch: make dependent ops use the same stream.
@@ -786,8 +790,8 @@ LogicalResult ConvertMemcpyOpToGpuRuntimeCallPattern::matchAndRewrite(
 
   Type elementPtrType = getElementPtrType(memRefType);
   Value nullPtr = rewriter.create<LLVM::NullOp>(loc, elementPtrType);
-  Value gepPtr = rewriter.create<LLVM::GEPOp>(
-      loc, elementPtrType, ArrayRef<Value>{nullPtr, numElements});
+  Value gepPtr = rewriter.create<LLVM::GEPOp>(loc, elementPtrType, nullPtr,
+                                              ArrayRef<Value>{numElements});
   auto sizeBytes =
       rewriter.create<LLVM::PtrToIntOp>(loc, getIndexType(), gepPtr);
 
@@ -844,7 +848,7 @@ mlir::createGpuToLLVMConversionPass() {
 }
 
 void mlir::populateGpuToLLVMConversionPatterns(
-    LLVMTypeConverter &converter, OwningRewritePatternList &patterns,
+    LLVMTypeConverter &converter, RewritePatternSet &patterns,
     StringRef gpuBinaryAnnotation) {
   converter.addConversion(
       [context = &converter.getContext()](gpu::AsyncTokenType type) -> Type {
