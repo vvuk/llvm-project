@@ -338,12 +338,6 @@ ABI Changes in Clang
   is still in the process of being stabilized, so this type should not yet be
   used in interfaces that require ABI stability.
 
-- GCC doesn't pack non-POD members in packed structs unless the packed
-  attribute is also specified on the member. Clang historically did perform
-  such packing. Clang now matches the gcc behavior (except on Darwin and PS4).
-  You can switch back to the old ABI behavior with the flag:
-  ``-fclang-abi-compat=13.0``.
-
 OpenMP Support in Clang
 -----------------------
 
@@ -387,6 +381,11 @@ Arm and AArch64 Support in Clang
 - The ``attribute((target("branch-protection=...)))`` attributes will now also
   work for the ARM backend.
 
+- When using ``-mbranch-protection=bti`` with AArch64, calls to setjmp will
+  now be followed by a BTI instruction. This is done to be compatible with
+  setjmp implementations that return with a br instead of a ret. You can
+  disable this behaviour using the ``-mno-bti-at-return-twice`` option.
+
 SPIR-V Support in Clang
 -----------------------
 
@@ -396,7 +395,6 @@ SPIR-V Support in Clang
   be used for HIP or OpenCL.
 - Added linking of separate object files in SPIR-V format using external
   ``spirv-link`` tool.
-
 
 Floating Point Support in Clang
 -------------------------------
