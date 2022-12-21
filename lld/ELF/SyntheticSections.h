@@ -470,16 +470,13 @@ public:
     return kind == AgainstSymbol || kind == AgainstSymbolWithTargetVA;
   }
 
-  // Change this relocation to be against the given symbol.  Converts
-  // AddendOnlyWithTargetVA relocations to AgainstSymbolWithTargetVA.
-  void forceAgainstSymbol(Symbol *newSym);
-
   /// Computes the addend of the dynamic relocation. Note that this is not the
   /// same as the #addend member variable as it may also include the symbol
   /// address/the address of the corresponding GOT entry/etc.
   int64_t computeAddend() const;
 
   void computeRaw(SymbolTableBaseSection *symtab);
+  void computeRawIRIX(SymbolTableBaseSection *symtab);
 
   Symbol *sym;
   const OutputSection *outputSec = nullptr;

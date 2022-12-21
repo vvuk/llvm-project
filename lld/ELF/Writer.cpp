@@ -2940,13 +2940,6 @@ template <class ELFT> void Writer<ELFT>::writeSections() {
     if (sec->type != SHT_REL && sec->type != SHT_RELA)
       sec->writeTo<ELFT>(Out::bufferStart + sec->offset);
 
-  // Finally, check that all dynamic relocation addends were written correctly.
-  if (config->checkDynamicRelocs && config->writeAddends) {
-    for (OutputSection *sec : outputSections)
-      if (sec->type == SHT_REL || sec->type == SHT_RELA)
-        sec->checkDynRelAddends(Out::bufferStart);
-  }
-
   // On IRIX, also update MIPS_REL32 relocations to have the full relocated value.
   // If an image is loaded at its natural load address, IRIX rld expects relocations
   // to already have the final computed value at their destination.
@@ -2954,6 +2947,13 @@ template <class ELFT> void Writer<ELFT>::writeSections() {
     for (OutputSection *sec : outputSections)
       if (sec->type == SHT_REL || sec->type == SHT_RELA)
         sec->precomputeDynRelValues(Out::bufferStart);
+  }
+
+  // Finally, check that all dynamic relocation addends were written correctly.
+  if (config->checkDynamicRelocs && config->writeAddends) {
+    for (OutputSection *sec : outputSections)
+      if (sec->type == SHT_REL || sec->type == SHT_RELA)
+        sec->checkDynRelAddends(Out::bufferStart);
   }
 }
 

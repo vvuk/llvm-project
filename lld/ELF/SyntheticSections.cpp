@@ -1685,66 +1685,50 @@ void RelocationBaseSection::finalizeContents() {
   }
 }
 
-void DynamicReloc::forceAgainstSymbol(Symbol *newSym) {
-  assert(kind == DynamicReloc::AddendOnlyWithTargetVA);
-  assert(sym != nullptr);
-
-  int64_t newAddend = computeAddend() - newSym->getVA();
-  sym = newSym;
-  addend = newAddend;
-  kind = AgainstSymbolWithTargetVA;
-}
-
 void DynamicReloc::computeRaw(SymbolTableBaseSection *symtab) {
   r_offset = getOffset();
   r_sym = getSymIndex(symtab);
   addend = computeAddend();
-  //kind = AddendOnly; // Catch errors
+  kind = AddendOnly; // Catch errors
 }
 
-void
-mf(const char *format, ...)
-{
-  char buffer[1024];
-  va_list args;
-  va_start(args, format);
-  vsnprintf(buffer, 1023, format, args);
-  message(buffer);
-  va_end(args);
+void DynamicReloc::computeRawIRIX(SymbolTableBaseSection *symtab) {
+  r_offset = getOffset();
+  r_sym = getSymIndex(symtab);
+
+  // This is a bit of a hack.  IRIX rld doesn't like R_MIPS_32 relocations against no
+  // symbol -- it ignores them, and only actually relocates if the symbol index != 0.
+  // So we use section symbols that we generated to give a target to relocate against.
+  if (sym && r_sym == 0) {
+    assert(type == R_MIPS_REL32 || type == (R_MIPS_64 << 8 | R_MIPS_REL32));
+    assert(dynRelKind() == DynamicReloc::AddendOnlyWithTargetVA);
+
+    // figure out what section the symbol will be in, and make the relocation against that
+    Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(sym->getOutputSection());
+
+    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) should go against %s", toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend, sectSym->getName().str().c_str());
+
+    addend = computeAddend() - sectSym->getVA();
+    sym = sectSym;
+    r_sym = getSymIndex(symtab);
+    kind = AgainstSymbolWithTargetVA;
+  } else {
+    addend = computeAddend();
+    // not on IRIX.  We have a final pass that needs the kind in Writer::precomputeDynRelValues
+    //kind = AddendOnly; // Catch errors
+  }
 }
 
 void RelocationBaseSection::computeRels() {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab.get();
 
-  message("RelocationBaseSection::computeRels");
-
-  // This is a bit of a hack.  IRIX rld doesn't like R_MIPS_32 relocations against no
-  // symbol -- it ignores them, and only actually relocates if the symbol index != 0.
-  // So we use section symbols that we generated to give a target to relocate against.
   if (config->osabi == ELFOSABI_IRIX) {
-    for (DynamicReloc &rel : relocs) {
-      if (rel.sym && rel.getSymIndex(symTab) == 0) {
-        assert(rel.type == R_MIPS_REL32 || rel.type == (R_MIPS_64 << 8 | R_MIPS_REL32));
-        assert(rel.dynRelKind() == DynamicReloc::AddendOnlyWithTargetVA);
-
-        // figure out what section the symbol will be in, and make the relocation against that
-        Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(rel.sym->getOutputSection());
-
-        mf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) should go against %s",
-          toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend,
-          sectSym->getName().str().c_str());
-
-        // replace with an updated AgainstSymbolWithTargetVA reloc
-        rel.forceAgainstSymbol(sectSym);
-
-        mf("  %08x sec: %p %s %s %d 0x%08x (addend: 0x%08x)", &rel, (InputSection*) this, this->name.str().c_str(),
-          toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend);
-      }
-    }
+    parallelForEach(relocs,
+                    [symTab](DynamicReloc &rel) { rel.computeRawIRIX(symTab); });
+  } else {
+    parallelForEach(relocs,
+                    [symTab](DynamicReloc &rel) { rel.computeRaw(symTab); });
   }
-
-  parallelForEach(relocs,
-                  [symTab](DynamicReloc &rel) { rel.computeRaw(symTab); });
 
   // Sort by (!IsRelative,SymIndex,r_offset). DT_REL[A]COUNT requires us to
   // place R_*_RELATIVE first. SymIndex is to improve locality, while r_offset

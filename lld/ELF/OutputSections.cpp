@@ -638,6 +638,14 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
           relOsec->type == SHT_NOBITS
               ? 0
               : target->getImplicitAddend(relocTarget, rel.type);
+
+      if (config->osabi == ELFOSABI_IRIX && rel.sym && rel.sym->isDefined()) {
+        // if a relocation is against a defined symbol, IRIX rld expects the written addend
+        // to already have the symbol's address added.  So subtract it out from the address
+        // we read from the buffer to make everything match up.
+        writtenAddend -= (uint32_t) rel.sym->getVA();
+      }
+
       if (addend != writtenAddend)
         internalLinkerError(
             getErrorLocation(relocTarget),
@@ -650,67 +658,70 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
   });
 }
 
-static void precomputeDynRelValue(const DynamicReloc& rel, uint8_t* bufStart)
+static void debugDumpMipsPrecomputeReloc(const DynamicReloc& rel, const char *msg, uint32_t addend, uint32_t result)
 {
   const static bool dump_relocs = getenv("DUMP_RELOCS") != nullptr;
-
-  const OutputSection *relOsec = rel.inputSec->getOutputSection();
-  assert(relOsec != nullptr && "missing output section for relocation");
-  if (relOsec->type == SHT_NOBITS)
-    return; // hmm TODO IRIX
-  uint64_t relocLoc = relOsec->offset + rel.inputSec->getOffset(rel.offsetInSec);
-  uint8_t *relocTarget = bufStart + relocLoc;
-
-  // if it's not R_MIPS_REL32, abort
-  if (rel.type != R_MIPS_REL32 && rel.type != (R_MIPS_64 << 8 | R_MIPS_REL32))
-    internalLinkerError(
-        getErrorLocation(relocTarget),
-        "expected R_MIPS_REL32 relocation at offset 0x" + utohexstr(rel.getOffset()) +
-          (rel.sym ? " against symbol " + toString(*rel.sym) : "")  +
-          ", instead got " + toString(rel.type));
-
-  // this only matters against defined symbols, i.e. where we know the location in _this_
-  // output image
-  if (rel.sym && rel.sym->isDefined()) {
-    // we know it's R_MIPS_REL32, so the computation is easy
-    int64_t addend = read32(relocTarget);
-
-    // || rel.dynRelKind() != DynamicReloc::AgainstSymbolWithTargetVA) {
-    if (rel.dynRelKind() != DynamicReloc::AgainstSymbol) {
-      if (dump_relocs)
-        printf("[@ 0x%08x] Skipping R_MIPS_REL32%s: 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
-          (uint32_t)rel.getOffset(),
-          (rel.type & R_MIPS_64) == R_MIPS_64 ? "[64!]" : "",
-          (uint32_t)addend,
-          rel.sym->type, rel.sym->symbolKind, rel.sym->stOther, rel.sym->exportDynamic, rel.sym->inDynamicList, rel.sym->isPreemptible,
-          rel.dynRelKind(),
-          toString(*rel.sym).c_str());
-      return;
-    }
-
-    int64_t result = rel.sym->getVA(addend);
-    if (dump_relocs)
-      printf("[@ 0x%08x] Precomputed R_MIPS_REL32%s: 0x%08x -> 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
-        (uint32_t)rel.getOffset(),
-        (rel.type & R_MIPS_64) == R_MIPS_64 ? "[64!]" : "",
-        (uint32_t)addend, (uint32_t)result,
-        rel.sym->type, rel.sym->symbolKind, rel.sym->stOther, rel.sym->exportDynamic, rel.sym->inDynamicList, rel.sym->isPreemptible,
-        rel.dynRelKind(),
-        toString(*rel.sym).c_str());
-    write32(relocTarget, result);
-  }
+  if (!dump_relocs)
+    return;
+  printf("[@ 0x%08x] %s R_MIPS_REL32%s: 0x%08x -> 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
+    (uint32_t)rel.getOffset(),
+    msg,
+    (rel.type & R_MIPS_64) == R_MIPS_64 ? "[64!]" : "",
+    (uint32_t)addend, (uint32_t)result,
+    rel.sym->type, rel.sym->symbolKind, rel.sym->stOther, rel.sym->exportDynamic, rel.sym->inDynamicList, rel.sym->isPreemptible,
+    rel.dynRelKind(),
+    toString(*rel.sym).c_str());
 }
 
 void OutputSection::precomputeDynRelValues(uint8_t *bufStart) {
   assert(config->osabi == ELFOSABI_IRIX);
   assert(type == SHT_REL || type == SHT_RELA);
+
   SmallVector<InputSection *, 0> sections = getInputSections(*this);
   parallelForEachN(0, sections.size(), [&](size_t i) {
+    // When linking with -r or --emit-relocs we might also call this function
+    // for input .rel[a].<sec> sections which we simply pass through to the
+    // output. We skip over those and only look at the synthetic relocation
+    // sections created during linking.
     const auto *sec = dyn_cast<RelocationBaseSection>(sections[i]);
     if (!sec)
       return;
     for (const DynamicReloc &rel : sec->relocs) {
-      precomputeDynRelValue(rel, bufStart);
+      const OutputSection *relOsec = rel.inputSec->getOutputSection();
+      assert(relOsec != nullptr && "missing output section for relocation");
+      // For SHT_NOBITS, the addend is always zero, and I think rld doesn't do anything with this?
+      if (relOsec->type == SHT_NOBITS)
+        return;
+
+      uint8_t *relocTarget =
+          bufStart + relOsec->offset + rel.inputSec->getOffset(rel.offsetInSec);
+
+      // if it's not R_MIPS_REL32, abort
+      if (rel.type != R_MIPS_REL32 && rel.type != (R_MIPS_64 << 8 | R_MIPS_REL32))
+        internalLinkerError(
+            getErrorLocation(relocTarget),
+            "expected R_MIPS_REL32 relocation at offset 0x" + utohexstr(rel.getOffset()) +
+              (rel.sym ? " against symbol " + toString(*rel.sym) : "")  +
+              ", instead got " + toString(rel.type));
+
+      // this only matters against defined symbols, i.e. where we know the location in _this_
+      // output image
+      if (!rel.sym || !rel.sym->isDefined())
+        continue;
+
+      // || rel.dynRelKind() != DynamicReloc::AgainstSymbolWithTargetVA) {
+      if (rel.dynRelKind() != DynamicReloc::AgainstSymbol) {
+        uint32_t addend = read32(relocTarget);
+        debugDumpMipsPrecomputeReloc(rel, "Skipping", addend, addend);
+        continue;
+      }
+
+      // we know it's R_MIPS_REL32, so the computation is easy
+      int64_t addend = read32(relocTarget);
+      int64_t result = rel.sym->getVA(addend);
+      write32(relocTarget, result);
+
+      debugDumpMipsPrecomputeReloc(rel, "Precomputed", addend, result);
     }
   });
 }
