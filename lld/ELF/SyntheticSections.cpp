@@ -1706,13 +1706,14 @@ void DynamicReloc::computeRawIRIX(SymbolTableBaseSection *symtab) {
     // figure out what section the symbol will be in, and make the relocation against that
     Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(sym->getOutputSection());
 
-    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) should go against %s", toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend, sectSym->getName().str().c_str());
+    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) was %s should go against %s\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym->getName().str().c_str(), sectSym->getName().str().c_str());
 
     addend = computeAddend() - sectSym->getVA();
     sym = sectSym;
     r_sym = getSymIndex(symtab);
     kind = AgainstSymbolWithTargetVA;
   } else {
+    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) against %s not changed\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym ? sym->getName().str().c_str() : "(none)");
     addend = computeAddend();
     // not on IRIX.  We have a final pass that needs the kind in Writer::precomputeDynRelValues
     //kind = AddendOnly; // Catch errors
@@ -1756,12 +1757,16 @@ template <class ELFT> void RelocationSection<ELFT>::writeTo(uint8_t *buf) {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab.get();
   computeRels();
   for (const DynamicReloc &rel : relocs) {
+    //printf("DynamicReloc WRITE: %s %s %d 0x%08x (addend: 0x%08x) against %s\n", config->isRela ? "RELA" : "REL", toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.r_offset, (uint32_t) rel.addend, rel.sym ? rel.sym->getName().str().c_str() : "(none)");
     auto *p = reinterpret_cast<Elf_Rela *>(buf);
     uint32_t symIndex = rel.getSymIndex(symTab);
     p->r_offset = rel.r_offset;
     p->setSymbolAndType(symIndex, rel.type, config->isMips64EL);
-    if (config->isRela)
+    if (config->isRela) {
+      // TODO IRIX -- if isRela, we probably need to apply the same treatment that we currently hack in precomputeDynRelValues in Writer.
+      // Might only be relevant on 64-bit.
       p->r_addend = rel.addend;
+    }
     buf += config->isRela ? sizeof(Elf_Rela) : sizeof(Elf_Rel);
   }
 }

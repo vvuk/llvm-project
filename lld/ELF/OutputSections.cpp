@@ -639,18 +639,19 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
               ? 0
               : target->getImplicitAddend(relocTarget, rel.type);
 
+      int64_t actualAddend = writtenAddend;
       if (config->osabi == ELFOSABI_IRIX && rel.sym && rel.sym->isDefined()) {
         // if a relocation is against a defined symbol, IRIX rld expects the written addend
         // to already have the symbol's address added.  So subtract it out from the address
         // we read from the buffer to make everything match up.
-        writtenAddend -= (uint32_t) rel.sym->getVA();
+        actualAddend -= (uint32_t) rel.sym->getVA();
       }
 
-      if (addend != writtenAddend)
+      if (addend != actualAddend)
         internalLinkerError(
             getErrorLocation(relocTarget),
             "wrote incorrect addend value 0x" + utohexstr(writtenAddend) +
-                " instead of 0x" + utohexstr(addend) +
+                " (actual 0x" + utohexstr(actualAddend) + ") instead of 0x" + utohexstr(addend) +
                 " for dynamic relocation " + toString(rel.type) +
                 " at offset 0x" + utohexstr(rel.getOffset()) +
                 (rel.sym ? " against symbol " + toString(*rel.sym) : ""));

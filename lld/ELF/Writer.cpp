@@ -2943,7 +2943,9 @@ template <class ELFT> void Writer<ELFT>::writeSections() {
   // On IRIX, also update MIPS_REL32 relocations to have the full relocated value.
   // If an image is loaded at its natural load address, IRIX rld expects relocations
   // to already have the final computed value at their destination.
-  if (config->osabi == ELFOSABI_IRIX) {
+  //
+  // TODO IRIX -- handle RELA
+  if (config->osabi == ELFOSABI_IRIX && config->writeAddends) {
     for (OutputSection *sec : outputSections)
       if (sec->type == SHT_REL || sec->type == SHT_RELA)
         sec->precomputeDynRelValues(Out::bufferStart);
