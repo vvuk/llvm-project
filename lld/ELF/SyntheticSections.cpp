@@ -39,6 +39,7 @@
 #include "llvm/Support/TimeProfiler.h"
 #include <cstdlib>
 #include <thread>
+#include <stdarg.h>
 
 using namespace llvm;
 using namespace llvm::dwarf;
@@ -1599,16 +1600,6 @@ uint32_t DynamicReloc::getSymIndex(SymbolTableBaseSection *symTab) const {
   return 0;
 }
 
-void DynamicReloc::forceAgainstSymbol(Symbol *newSym) {
-  assert(kind == DynamicReloc::AddendOnlyWithTargetVA);
-  assert(sym != nullptr);
-
-  int64_t newAddend = computeAddend() - newSym->getVA();
-  sym = newSym;
-  addend = newAddend;
-  kind = AgainstSymbolWithTargetVA;
-}
-
 RelocationBaseSection::RelocationBaseSection(StringRef name, uint32_t type,
                                              int32_t dynamicTag,
                                              int32_t sizeDynamicTag,
@@ -1694,15 +1685,38 @@ void RelocationBaseSection::finalizeContents() {
   }
 }
 
+void DynamicReloc::forceAgainstSymbol(Symbol *newSym) {
+  assert(kind == DynamicReloc::AddendOnlyWithTargetVA);
+  assert(sym != nullptr);
+
+  int64_t newAddend = computeAddend() - newSym->getVA();
+  sym = newSym;
+  addend = newAddend;
+  kind = AgainstSymbolWithTargetVA;
+}
+
 void DynamicReloc::computeRaw(SymbolTableBaseSection *symtab) {
   r_offset = getOffset();
   r_sym = getSymIndex(symtab);
   addend = computeAddend();
-  kind = AddendOnly; // Catch errors
+  //kind = AddendOnly; // Catch errors
+}
+
+void
+mf(const char *format, ...)
+{
+  char buffer[1024];
+  va_list args;
+  va_start(args, format);
+  vsnprintf(buffer, 1023, format, args);
+  message(buffer);
+  va_end(args);
 }
 
 void RelocationBaseSection::computeRels() {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab.get();
+
+  message("RelocationBaseSection::computeRels");
 
   // This is a bit of a hack.  IRIX rld doesn't like R_MIPS_32 relocations against no
   // symbol -- it ignores them, and only actually relocates if the symbol index != 0.
@@ -1716,8 +1730,15 @@ void RelocationBaseSection::computeRels() {
         // figure out what section the symbol will be in, and make the relocation against that
         Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(rel.sym->getOutputSection());
 
+        mf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) should go against %s",
+          toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend,
+          sectSym->getName().str().c_str());
+
         // replace with an updated AgainstSymbolWithTargetVA reloc
         rel.forceAgainstSymbol(sectSym);
+
+        mf("  %08x sec: %p %s %s %d 0x%08x (addend: 0x%08x)", &rel, (InputSection*) this, this->name.str().c_str(),
+          toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.getOffset(), (uint32_t) rel.addend);
       }
     }
   }
