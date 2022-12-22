@@ -240,6 +240,8 @@ struct Configuration {
   bool zIfuncNoplt;
   bool zInitfirst;
   bool zInterpose;
+  bool zIrixDumpRelocs;
+  bool zIrixSpecialSections;
   bool zKeepTextSectionPrefix;
   bool zNodefaultlib;
   bool zNodelete;

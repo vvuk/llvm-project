@@ -1516,7 +1516,7 @@ DynamicSection<ELFT>::computeContents() {
     if (config->osabi != ELFOSABI_IRIX) {
       addInt(DT_MIPS_FLAGS, RHF_NOTPOT);
     } else {
-      addInt(DT_MIPS_FLAGS, /*RHF_NOTPOT | */ RHF_SGI_ONLY | RHF_NO_UNRES_UNDEF /* | RHF_RLD_ORDER_SAFE */);
+      addInt(DT_MIPS_FLAGS, RHF_NOTPOT /*RHF_NOTPOT | RHF_SGI_ONLY | RHF_NO_UNRES_UNDEF | RHF_RLD_ORDER_SAFE */);
     }
     addInt(DT_MIPS_BASE_ADDRESS, target->getImageBase());
     addInt(DT_MIPS_SYMTABNO, part.dynSymTab->getNumSymbols());
@@ -1696,6 +1696,11 @@ void DynamicReloc::computeRawIRIX(SymbolTableBaseSection *symtab) {
   r_offset = getOffset();
   r_sym = getSymIndex(symtab);
 
+  if (config->zIrixDumpRelocs)
+    printf("computeRawIRIX: %s %d 0x%08x (addend: 0x%08x) sym %s kind: %d r_sym %d\n",
+      toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend,
+      sym ? sym->getName().str().c_str() : "XXX", sym ? sym->kind() : -1, r_sym);
+
   // This is a bit of a hack.  IRIX rld doesn't like R_MIPS_32 relocations against no
   // symbol -- it ignores them, and only actually relocates if the symbol index != 0.
   // So we use section symbols that we generated to give a target to relocate against.
@@ -1706,14 +1711,20 @@ void DynamicReloc::computeRawIRIX(SymbolTableBaseSection *symtab) {
     // figure out what section the symbol will be in, and make the relocation against that
     Symbol *sectSym = mainPart->dynSymTab->getSectionSymbol(sym->getOutputSection());
 
-    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) was %s should go against %s\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym->getName().str().c_str(), sectSym->getName().str().c_str());
+    if (config->zIrixDumpRelocs)
+      printf("DynamicReloc  : %s %d 0x%08x (addend: 0x%08x) was %s kind: %d should go against %s\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym->getName().str().c_str(), sym->kind(), sectSym->getName().str().c_str());
 
     addend = computeAddend() - sectSym->getVA();
     sym = sectSym;
-    r_sym = getSymIndex(symtab);
     kind = AgainstSymbolWithTargetVA;
+
+    // re-update these after fixing things above
+    r_offset = getOffset();
+    r_sym = getSymIndex(symtab);
   } else {
-    //printf("DynamicReloc: %s %d 0x%08x (addend: 0x%08x) against %s not changed\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym ? sym->getName().str().c_str() : "(none)");
+    if (config->zIrixDumpRelocs)
+      printf("DynamicReloc  : %s %d 0x%08x (addend: 0x%08x) against %s not changed\n", toString(type).c_str(), (int) dynRelKind(), (uint32_t)getOffset(), (uint32_t) addend, sym ? sym->getName().str().c_str() : "(none)");
+
     addend = computeAddend();
     // not on IRIX.  We have a final pass that needs the kind in Writer::precomputeDynRelValues
     //kind = AddendOnly; // Catch errors
@@ -1724,24 +1735,38 @@ void RelocationBaseSection::computeRels() {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab.get();
 
   if (config->osabi == ELFOSABI_IRIX) {
-    parallelForEach(relocs,
-                    [symTab](DynamicReloc &rel) { rel.computeRawIRIX(symTab); });
+    if (!config->zIrixDumpRelocs) {
+      parallelForEach(relocs,
+                      [symTab](DynamicReloc &rel) { rel.computeRawIRIX(symTab); });
+    } else {
+      // don't do it in parallel if we're doing dumps so that prints don't get out of order
+      for (auto& rel : relocs)
+        rel.computeRawIRIX(symTab);
+    }
+
+    // The combreloc path below only does a parallelSort based on the offset;
+    // IRIX rld requires them to be sorted by symbol index primarily.
+    llvm::stable_sort(
+      relocs, [&](const DynamicReloc &a, const DynamicReloc &b) {
+        return std::make_tuple(a.type != target->relativeRel, a.r_sym, a.r_offset) <
+               std::make_tuple(b.type != target->relativeRel, b.r_sym, b.r_offset);
+      });
   } else {
     parallelForEach(relocs,
                     [symTab](DynamicReloc &rel) { rel.computeRaw(symTab); });
-  }
 
-  // Sort by (!IsRelative,SymIndex,r_offset). DT_REL[A]COUNT requires us to
-  // place R_*_RELATIVE first. SymIndex is to improve locality, while r_offset
-  // is to make results easier to read.
-  if (combreloc) {
-    auto nonRelative = relocs.begin() + numRelativeRelocs;
-    parallelSort(relocs.begin(), nonRelative,
-                 [&](auto &a, auto &b) { return a.r_offset < b.r_offset; });
-    // Non-relative relocations are few, so don't bother with parallelSort.
-    std::sort(nonRelative, relocs.end(), [&](auto &a, auto &b) {
-      return std::tie(a.r_sym, a.r_offset) < std::tie(b.r_sym, b.r_offset);
-    });
+    // Sort by (!IsRelative,SymIndex,r_offset). DT_REL[A]COUNT requires us to
+    // place R_*_RELATIVE first. SymIndex is to improve locality, while r_offset
+    // is to make results easier to read.
+    if (combreloc) {
+      auto nonRelative = relocs.begin() + numRelativeRelocs;
+      parallelSort(relocs.begin(), nonRelative,
+                  [&](auto &a, auto &b) { return a.r_offset < b.r_offset; });
+      // Non-relative relocations are few, so don't bother with parallelSort.
+      std::sort(nonRelative, relocs.end(), [&](auto &a, auto &b) {
+        return std::tie(a.r_sym, a.r_offset) < std::tie(b.r_sym, b.r_offset);
+      });
+    }
   }
 }
 
@@ -1757,14 +1782,11 @@ template <class ELFT> void RelocationSection<ELFT>::writeTo(uint8_t *buf) {
   SymbolTableBaseSection *symTab = getPartition().dynSymTab.get();
   computeRels();
   for (const DynamicReloc &rel : relocs) {
-    //printf("DynamicReloc WRITE: %s %s %d 0x%08x (addend: 0x%08x) against %s\n", config->isRela ? "RELA" : "REL", toString(rel.type).c_str(), (int) rel.dynRelKind(), (uint32_t)rel.r_offset, (uint32_t) rel.addend, rel.sym ? rel.sym->getName().str().c_str() : "(none)");
     auto *p = reinterpret_cast<Elf_Rela *>(buf);
     uint32_t symIndex = rel.getSymIndex(symTab);
     p->r_offset = rel.r_offset;
     p->setSymbolAndType(symIndex, rel.type, config->isMips64EL);
     if (config->isRela) {
-      // TODO IRIX -- if isRela, we probably need to apply the same treatment that we currently hack in precomputeDynRelValues in Writer.
-      // Might only be relevant on 64-bit.
       p->r_addend = rel.addend;
     }
     buf += config->isRela ? sizeof(Elf_Rela) : sizeof(Elf_Rel);
@@ -2341,13 +2363,12 @@ template <class ELFT> void SymbolTableSection<ELFT>::writeTo(uint8_t *buf) {
         // 
         // HOWEVER, tools like SpeedShop _only_ look for some symbols, e.g. .text,
         // with type 0xff01.  So we have to preserve this for text symbols.
-        static int doSpecialIRIXSections = getenv("IRIX_SPECIAL_SECTIONS") ? atoi(getenv("IRIX_SPECIAL_SECTIONS")) : 1;
-        if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx && doSpecialIRIXSections) {
+        if (config->osabi == ELFOSABI_IRIX && eSym->st_shndx && config->zIrixSpecialSections) {
           BssSection *bss;
           if (auto *defSym = dyn_cast<Defined>(sym)) {
-            if (textSection && sym->getOutputSection() == textSection && doSpecialIRIXSections > 0) {
+            if (textSection && sym->getOutputSection() == textSection) {
               eSym->st_shndx = SHN_MIPS_TEXT;
-            } else if (defSym->section && (bss = dyn_cast<BssSection>(defSym->section)) && doSpecialIRIXSections > 1) {
+            } else if (defSym->section && (bss = dyn_cast<BssSection>(defSym->section))) {
               // was this an automatically defined common symbol
               if (bss->name == "COMMON")
                 eSym->st_shndx = SHN_MIPS_ACOMMON;

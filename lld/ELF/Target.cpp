@@ -41,10 +41,18 @@ using namespace lld::elf;
 const TargetInfo *elf::target;
 
 std::string lld::toString(RelType type) {
+  std::string extra;
+  if (elf::config->emachine == ELF::EM_MIPS) {
+    if (((type >> 8) & R_MIPS_64) == R_MIPS_64) {
+      extra = "[64]";
+      type = type & 0xff;
+    }
+  }
+
   StringRef s = getELFRelocationTypeName(elf::config->emachine, type);
   if (s == "Unknown")
     return ("Unknown (" + Twine(type) + ")").str();
-  return std::string(s);
+  return std::string(s) + extra;
 }
 
 TargetInfo *elf::getTarget() {

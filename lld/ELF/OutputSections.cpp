@@ -644,7 +644,7 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
         // if a relocation is against a defined symbol, IRIX rld expects the written addend
         // to already have the symbol's address added.  So subtract it out from the address
         // we read from the buffer to make everything match up.
-        actualAddend -= (uint32_t) rel.sym->getVA();
+        actualAddend -= (uint64_t) rel.sym->getVA();
       }
 
       if (addend != actualAddend)
@@ -659,10 +659,9 @@ void OutputSection::checkDynRelAddends(const uint8_t *bufStart) {
   });
 }
 
-static void debugDumpMipsPrecomputeReloc(const DynamicReloc& rel, const char *msg, uint32_t addend, uint32_t result)
+static void debugDumpMipsPrecomputeReloc(const DynamicReloc& rel, const char *msg, uint64_t addend, uint64_t result)
 {
-  const static bool dump_relocs = getenv("DUMP_RELOCS") != nullptr;
-  if (!dump_relocs)
+  if (!config->zIrixDumpRelocs)
     return;
   printf("[@ 0x%08x] %s R_MIPS_REL32%s: 0x%08x -> 0x%08x sym [typ %d knd %d oth %d edyn %d idyn %d pre %d || rkind %d] %s\n",
     (uint32_t)rel.getOffset(),
@@ -712,17 +711,21 @@ void OutputSection::precomputeDynRelValues(uint8_t *bufStart) {
 
       // || rel.dynRelKind() != DynamicReloc::AgainstSymbolWithTargetVA) {
       if (rel.dynRelKind() != DynamicReloc::AgainstSymbol) {
-        uint32_t addend = read32(relocTarget);
+        uint64_t addend = rel.type == R_MIPS_REL32 ? read32(relocTarget) : read64(relocTarget);
         debugDumpMipsPrecomputeReloc(rel, "Skipping", addend, addend);
         continue;
       }
-
-      // we know it's R_MIPS_REL32, so the computation is easy
-      int64_t addend = read32(relocTarget);
-      int64_t result = rel.sym->getVA(addend);
-      write32(relocTarget, result);
-
-      debugDumpMipsPrecomputeReloc(rel, "Precomputed", addend, result);
+      // we know it's R_MIPS_REL32/64, so the computation is easy
+      if (rel.type == R_MIPS_REL32) {
+        uint32_t addend = read32(relocTarget);
+        uint32_t result = rel.sym->getVA(addend);
+        write32(relocTarget, result);
+      } else {
+        uint64_t addend = read64(relocTarget);
+        uint64_t result = rel.sym->getVA(addend);
+        write64(relocTarget, result);
+        debugDumpMipsPrecomputeReloc(rel, "Precomputed", addend, result);
+      }
     }
   });
 }

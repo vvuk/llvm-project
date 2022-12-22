@@ -471,6 +471,7 @@ static bool isKnownZFlag(StringRef s) {
          s == "rela" || s == "relro" || s == "retpolineplt" ||
          s == "rodynamic" || s == "shstk" || s == "text" || s == "undefs" ||
          s == "wxneeded" || s.startswith("common-page-size=") ||
+         s.startswith("irix-") ||
          s.startswith("bti-report=") || s.startswith("cet-report=") ||
          s.startswith("dead-reloc-in-nonalloc=") ||
          s.startswith("max-page-size=") || s.startswith("stack-size=") ||
@@ -1167,6 +1168,8 @@ static void readConfigs(opt::InputArgList &args) {
   config->zIfuncNoplt = hasZOption(args, "ifunc-noplt");
   config->zInitfirst = hasZOption(args, "initfirst");
   config->zInterpose = hasZOption(args, "interpose");
+  config->zIrixDumpRelocs = hasZOption(args, "irix-dump-relocs") || getenv("DUMP_RELOCS");
+  config->zIrixSpecialSections = hasZOption(args, "irix-special-sections");
   config->zKeepTextSectionPrefix = getZFlag(
       args, "keep-text-section-prefix", "nokeep-text-section-prefix", false);
   config->zNodefaultlib = hasZOption(args, "nodefaultlib");
