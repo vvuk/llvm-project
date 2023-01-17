@@ -1,5 +1,7 @@
 #!/bin/bash
 
+: "${LLVMVER:=14.0.6}"
+
 RELDIR=$(dirname $0)/..
 if [ ! -f ${RELDIR}/llvm/CMakeLists.txt ] ; then
     echo bad RELDIR ${RELDIR}
@@ -19,8 +21,8 @@ fi
 
 CFLAGS="-Werror=date-time -Werror=unguarded-availability-new -Wall -Wextra -Wno-unused-parameter -Wwrite-strings -Wmissing-field-initializers -Wimplicit-fallthrough -Wcovered-switch-default -Wno-comment -Wstring-conversion -Wmisleading-indentation -Wno-pedantic -fdiagnostics-color -ffunction-sections -fdata-sections -Wall -fno-lto -std=c11 -fPIC -DEH_USE_FRAME_REGISTRY"
 
-#RTDIR=lib32/clang/14.0.0/lib/irix6.5
-RTDIR=lib32/clang/14.0.0/lib
+#RTDIR=lib32/clang/${LLVMVER}/lib/irix6.5
+RTDIR=lib32/clang/${LLVMVER}/lib
 
 mkdir -p $RTDIR/mips64-sgi-irix6.5{,-gnuabin32}
 

@@ -4,14 +4,14 @@ set -x
 set -e
 
 # FFS
-LLVMV=14.0.0
+LLVMVER=14.0.6
 
 #STAGE0=../build-full
 STAGE0=../../llvm/build-full
 CC=$(readlink -f $STAGE0/bin/clang)
 CXX=$(readlink -f $STAGE0/bin/clang++)
 
-DEST=./lib/clang/${LLVMV}/lib
+DEST=./lib/clang/${LLVMVER}/lib
 rm -rf ${DEST}
 mkdir -p ${DEST}
 

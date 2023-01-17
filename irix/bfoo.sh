@@ -2,8 +2,7 @@
 
 set -e
 
-: "${CROSSBUILDTYPE=RelWithDebInfo}"
-: "${NATIVEBUILDTYPE=RelWithDebInfo}"
+: "${NATIVEBUILDTYPE=Debug}"
 
 LLVMDIR="`dirname $0`/.."
 cd $LLVMDIR
@@ -21,8 +20,8 @@ fi
 : "${NATIVEPREFIX:=/usr/sgug}"
 
 # Build directory prefix
-: "${CROSSBUILDDIR:=build-clean-cross}"
-: "${NATIVEBUILDDIR:=build-clean-native}"
+: "${BUILDDIR:=build-debug}"
+: "${NATIVEBUILDDIR:=build-clean}"
 
 # IRIX root
 : "${IRIXROOT:=/opt/irix/root}"
@@ -32,15 +31,15 @@ fi
 echo "Building cross and native IRIX Clang with the following configuration:"
 echo ""
 echo "Location where Linux cross-compiler will live:"
-echo "   CROSSPREFIX = ${CROSSPREFIX} (${CROSSBUILDTYPE})"
+echo "   CROSSPREFIX = ${CROSSPREFIX}"
 echo "Location where native compiler will live under IRIX:"
-echo "   NATIVEPREIFX = ${NATIVEPREFIX} (${NATIVEBUILDTYPE})"
+echo "   NATIVEPREIFX = ${NATIVEPREFIX}"
 echo "Name prefix to use for build directories:"
-echo "   CROSSBUILDDIR  = ${CROSSBUILDDIR}"
-echo "   NATIVEBUILDDIR = ${NATIVEBUILDDIR}"
+echo "   BUILDDIR = ${BUILDDIR}"
 echo "Location of IRIX root filesystem:"
 echo "   IRIXROOT = ${IRIXROOT}"
 echo ""
+echo $"${CROSSBUILDTYPE} ${NATIVEBUILDTYPE}"
 
 if [ ! -f ${IRIXROOT}/lib32/libc.so.1 ] ; then
     echo "ERROR: Expected to find IRIX root in ${IRIXROOT} (missing ${IRIXROOT}/lib32/libc.so.1)"
@@ -80,13 +79,6 @@ if [ "$GO" == "" ] ; then
     sleep 1
 fi
 
-if [ "$1" == "clean" ] ; then
-    shift
-    echo "Cleaning up build directories"
-    rm -rf "${CROSSBUILDDIR}"
-    rm -rf "${NATIVEBUILDDIR}"
-fi
-
 fix_dest_dir () {
     DD="$1"
 
@@ -105,62 +97,27 @@ fix_dest_dir () {
     cp -u -r ${LLVMDIR}/irix/include-fixed ${DD}/lib32/clang/${LLVMVER}
 }
 
-if [ "$NO_BUILD_CROSS" == "" ] ; then
-    echo "==== Cross compiler build ===="
-    mkdir -p ${CROSSBUILDDIR}
-    cd ${CROSSBUILDDIR}
-
-    ../irix/setup-irix-cross.sh -DCMAKE_INSTALL_PREFIX=${CROSSPREFIX} -DCMAKE_BUILD_TYPE=${CROSSBUILDTYPE}
-    # Build clang first so we can build the CRT
-    ninja bin/clang
-
-    # Then build the CRT
-    CC=`pwd`/bin/clang ../irix/build-crt.sh
-
-    # Then the rest (including runtimes, which need the CRT)
-    ninja
-
-    # recreate DEST, but do it carefully so that we don't replace things
-    # that would cause the native build to be forced to rebuild
-    mkdir -p DEST
-
-    rm -rf DEST.tmp
-    DESTDIR=`pwd`/DEST.tmp ninja install
-    fix_dest_dir DEST.tmp/${CROSSPREFIX}
-    # clang-tblgen doesn't get installed, which complicates things for the native build.  just copy it in.
-    cp -u bin/clang-tblgen DEST.tmp/${CROSSPREFIX}/bin
-
-    rsync -a --delete -c DEST.tmp/ DEST/
-    rm -rf DEST.tmp
-
-    cd ..
-    echo "===="
-else
-    echo "==== Skipping cross compiler build ===="
-fi
-
 if [ "$NO_BUILD_NATIVE" == "" ] ; then
     echo "==== Native compiler build ===="
 
-    mkdir -p ${NATIVEBUILDDIR}
-    cd ${NATIVEBUILDDIR}
+    mkdir -p ${BUILDDIR}-native
+    cd ${BUILDDIR}-native
 
     # copy in the runtimes first, though we may not need them here
     mkdir -p lib32/clang/${LLVMVER}/lib
-    cp -u -r ../${CROSSBUILDDIR}/DEST/${CROSSPREFIX}/lib32/clang/${LLVMVER}/lib/* lib32/clang/${LLVMVER}/lib
+    cp -u -r ../${NATIVEBUILDDIR}-cross/DEST/${CROSSPREFIX}/lib32/clang/${LLVMVER}/lib/* lib32/clang/${LLVMVER}/lib
 
-    CROSSDIR=../${CROSSBUILDDIR}/DEST/${CROSSPREFIX} \
+    CROSSDIR=../${NATIVEBUILDDIR}-cross/DEST/${CROSSPREFIX} \
         ../irix/setup-irix-native.sh \
         -DCMAKE_INSTALL_PREFIX=${NATIVEPREFIX} \
         -DCMAKE_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 \
         -DRUNTIMES_INSTALL_RPATH=/usr/sgug/lib32:/usr/lib32:/lib32 \
         -DCMAKE_BUILD_TYPE=${NATIVEBUILDTYPE} \
+        -DCMAKE_INSTALL_STRIP=OFF \
+        -DCMAKE_STRIP=echo \
+        -DCMAKE_C_FLAGS="-g -O1" \
+        -DCMAKE_CXX_FLAGS="-g -O1" \
         -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
-
-    #    -DCMAKE_INSTALL_STRIP=OFF \
-    #    -DCMAKE_STRIP=echo \
-    #    -DCMAKE_C_FLAGS="-g -O1" \
-    #    -DCMAKE_CXX_FLAGS="-g -O1"
 
     ninja
 
@@ -174,10 +131,8 @@ else
     echo "==== Skipping native compiler build ===="
 fi
 
-if [ "$1" != "notar" ] ; then
-    echo "Creating llvm-${LLVMVER}-irix-${NATIVEBUILDDIR}.tar ..."
-    tar -c -f llvm-${LLVMVER}-irix-${NATIVEBUILDDIR}.tar -C ${NATIVEBUILDDIR}/DEST usr
-    echo "Creating llvm-${LLVMVER}-irix-${CROSSBUILDDIR}.tar ..."
-    tar -c -f llvm-${LLVMVER}-irix-${CROSSBUILDDIR}.tar -C ${CROSSBUILDDIR}/DEST opt
-fi
+echo "Creating llvm-${LLVMVER}-irix-sgug.tar ..."
+tar -c -f llvm-${LLVMVER}-irix-sgug.tar -C build-clean-native/DEST usr
+echo "Creating llvm-${LLVMVER}-irix-linux-cross.tar ..."
+tar -c -f llvm-${LLVMVER}-irix-linux-cross.tar -C build-clean-cross/DEST opt
 

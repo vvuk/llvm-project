@@ -2,8 +2,8 @@
 %global min_ver 0
 %global patch_ver 6
 #.global rc_ver 0
-#%global pre_ver 6
-%global rel_ver 1
+#.global pre_ver 6
+%global rel_ver 2
 
 %global pkg_bindir %{_bindir}
 %global pkg_libdir %{_libdir}
@@ -18,7 +18,7 @@ Summary:	    The Low Level Virtual Machine
 License:        NCSA
 URL:    		http://llvm.org
 
-Source0:        llvm-14.0.0-irix-sgug.tar
+Source0:        llvm-14.0.6-irix-sgug.tar
 
 Requires:	libcxx = %{version}-%{release}
 Requires:	libunwind = %{version}-%{release}
@@ -150,12 +150,17 @@ Provides:	llvm-static(major) = %{maj_ver}
 Static libraries for the LLVM compiler infrastructure.
 
 %prep
-%setup -q -c
+%setup -c
+pwd
+echo PREP DONE
 
 %build
+pwd
 echo No build
 
 %install
+pwd
+echo INSTALL $RPM_BUILD_ROOT
 rm -rf $RPM_BUILD_ROOT
 mkdir -p $RPM_BUILD_ROOT
 mv usr $RPM_BUILD_ROOT
@@ -168,6 +173,7 @@ echo PREFIX %{_prefix}
 echo BINDIR %{_bindir}
 echo LIBDIR %{_libdir}
 echo LIB64DIR %{lib64dir}
+echo DATADIR %{_datadir}
 
 
 %files

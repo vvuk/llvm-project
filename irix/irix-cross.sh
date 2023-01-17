@@ -44,6 +44,6 @@ cmake -G Ninja \
     -DCLANG_TOOLING_BUILD_AST_INTROSPECTION=OFF \
     -DCLANG_DEFAULT_LINKER=lld \
     -DCMAKE_BUILD_TYPE=Release \
-    $* \
+    "$@" \
     ${RELDIR}/llvm
 )

@@ -33,6 +33,6 @@ cmake -G Ninja \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DCLANG_DEFAULT_LINKER=lld \
     -DCMAKE_INSTALL_PREFIX=/opt/irix/sgug/llvm \
-    $* \
+    "$@" \
     ${RELDIR}/llvm
 )
