@@ -163,7 +163,7 @@ public:
   std::string getVerbatimTag() const;
 
   SMRange getSourceRange() const { return SourceRange; }
-  void setSourceRange(SMRange SR) { SourceRange = SR; }
+  void setSourceRange(SMRange SRx) { SourceRange = SRx; }
 
   // These functions forward to Document and Scanner.
   Token &peekNext();
